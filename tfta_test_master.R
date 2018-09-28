@@ -1,24 +1,28 @@
 # tfta_test_master.R
 # Jessica Tin
-# 21 Sept 2018
+# 28 Sept 2018
 #
 # Compiles pre- and post-test CSVs from each participant's data folder into a
 # single master CSV for TFTA.
 #
 
+#### SET SERVER PATH ####
+PerrachioneLab <- "/Volumes/PerrachioneLab" # Mac
+#PerrachioneLab <- "/PerrachioneLab" # Linux
+#PerrachioneLab <- "R:/PerrachioneLab" # Windows
+setwd(file.path(PerrachioneLab, "projects", "TFTA", "Analysis"))
+
 #### LOAD PACKAGES ####
-source("/Volumes/PerrachioneLab/software/r-scripts/load_packages.R")
+source(file.path(PerrachioneLab, "software", "r-scripts", "load_packages.R"))
 load_packages("dplyr", "readr", "tidyr")
 
-#### SET WORKING DIRECTORY ####
-setwd("/Volumes/PerrachioneLab/projects/TFTA/Analysis") # Mac
-#setwd("/PerrachioneLab/projects/TFTA") # Linux
-#setwd("R:/PerrachioneLab/projects/TFTA") # Windows
-
 #### IMPORT INDIVIDUAL CSVs ####
-# find all CSV files starting with p####_ within project folder > Experiment > data
-# (default location for psychopy output; change file.path if CSVs are elsewhere)
-csv_files <- list.files(path = file.path("..","Data"),
+# find all CSV files starting with p####_ within project folder > Data > p####
+# (change file.path if CSVs are elsewhere)
+csv_files <- list.files(path = grep("exclude",
+                                    list.dirs(path = file.path("..", "Data"),
+                                              recursive = FALSE),
+                                    value = TRUE, invert = TRUE),
                         pattern = "^p[0-9]{4}_.*test.*\\.csv$",
                         full.names = TRUE, recursive = TRUE)
 
@@ -69,8 +73,7 @@ for(f in csv_files) {
 }
 
 # create master data frame from master_list data frames
-master_df <- rbindlist(master_list)
+master_df <- bind_rows(master_list)
 
-# save resulting data frame as a CSV with timestamp within project folder > Analysis
-timestamp <- format(Sys.time(), tz = "EST5EDT", format = "%m-%d-%y_%H%M")
-write_csv(master_df, file.path(paste0("master_test_",timestamp,".csv")))
+# save resulting data frame as a CSV (in project folder > Analysis)
+write_csv(master_df, "master_test.csv")
