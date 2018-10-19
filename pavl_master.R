@@ -1,6 +1,6 @@
 # pavl_master.R
 # author: Jessica Tin
-# updated: 17 May 2018
+# updated: 3 Aug 2018
 #
 # Compiles data from every CSV in PAVL's data folder into a single master CSV.
 #
@@ -8,9 +8,12 @@
 #### LOAD PACKAGES ####
 # script uses tidyverse packages dplyr, readr, tidyr (requires R version >= 3.1.2)
 # see dplyr.tidyverse.org (for mutate(), group_by(), etc.) and help(magrittr) (for %>%)
-if(!require("dplyr")) {install.packages("dplyr"); library(dplyr)}
-if(!require("readr")) {install.packages("readr"); library(readr)}
-if(!require("stringr")) {install.packages("stringr"); library(stringr)}
+if(!require("dplyr")) install.packages("dplyr", dependencies = TRUE)
+if(!require("readr")) install.packages("readr", dependencies = TRUE)
+if(!require("stringr")) install.packages("readr", dependencies = TRUE)
+library("dplyr") # for data frame manipulation and forward pipe (%>%)
+library("readr") # for faster reading and writing
+library("stringr") # for str_to_upper()
 
 #### SET WORKING DIRECTORY ####
 # set wd to main project folder
@@ -77,15 +80,16 @@ for(f in csv_files) {
 
             # add block number for trials 201-250
             block = ifelse(trial > 200, ((trial - 201) %/% 10) + 1, NA)
+
         ) %>%
 
         # sum up accurate trials
         mutate(
             exposure_acc_sum = sum(exposure_accuracy, na.rm  = TRUE),
-            test_acc_sum = sum(test_accuracy, na.rm  = TRUE),
+            test_acc_sum = sum(test_accuracy, na.rm  = TRUE)) %>%
 
-            exposure_acc_sum = ifelse(is.na(exposure_accuracy), NA, exposure_acc_sum),
-            test_acc_sum = ifelse(is.na(test_accuracy), NA, test_acc_sum)) %>%
+            #exposure_acc_sum = ifelse(is.na(exposure_accuracy), NA, exposure_acc_sum),
+            #test_acc_sum = ifelse(is.na(test_accuracy), NA, test_acc_sum)) %>%
 
         # sum up accuracy by block
         group_by(block) %>%
