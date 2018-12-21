@@ -40,4 +40,6 @@ master_df <- bind_rows(master_list) %>%
     mutate_if(is.character, as.factor)
 
 # save resulting data frame as a CSV (in project folder > Analysis)
+print("Saving: master_transcription.csv")
 write_csv(master_df, "master_transcription.csv")
+print(file.path(getwd(), "master_transcription.csv"))
