@@ -1,6 +1,6 @@
 # tfta_plots.R
 # Jessica Tin
-# 15 Nov 2018
+# 21 Dec 2018
 #
 # Creates plots for TFTA.
 #
@@ -16,11 +16,17 @@ source(file.path(PerrachioneLab, "software", "r-scripts", "load_packages.R"))
 load_packages("dplyr", "magrittr", "readr", "tidyr", "purrr", "ggplot2", "viridis",
               "scales")
 
+#### UPDATE MASTER CSVs ####
+# skip this section if master CSVs are up to date
+# must change server path within each script if not /Volumes/PerrachioneLab
+source("tfta_training_master.R") # training data
+source("tfta_test_master.R") # test data
+source("tfta_transcription_master.R") # transcription data
+
 #### READ IN AND PREPROCESS TRAINING DATA ####
-# update and read in master CSV
-source("tfta_training_master.R") # must change server path before sourcing if different
-master_training <- read_csv("master_training.csv", col_types = "cciiicciiccdicc") %>%
-    mutate_if(is.character, as.factor)
+# read in master CSV
+master_training <- read_csv("master_training.csv", col_types = "cciiicciiccdicc")
+
 training <- master_training %>%
     filter(
         # only plot data from participants who have finished day 3 of training
@@ -37,6 +43,7 @@ training <- master_training %>%
     mutate(rt_3SD = ifelse((log(rt) <= mean_logrt + 3*sd_logrt) &&
                                (log(rt) >= mean_logrt - 3*sd_logrt), rt, NA)) %>%
     filter(!is.na(rt_3SD)) %>%
+
     mutate(
         # compute sensitivity measures
         #
@@ -65,17 +72,16 @@ training <- master_training %>%
         )
     ) %>% ungroup()
 
-# save info about which participants trained on which talkers/vowels
-trained_groups <- training %>%
+#### SAVE TRAINING GROUPS ####
+# save which participants trained on which talkers/vowels
+training_groups <- training %>%
     group_by(participant) %>%
-    summarize_at(vars(talker_trained, vowel_trained), unique) %>%
-    mutate_if(is.character, as.factor)
+    summarize_at(vars(talker_trained, vowel_trained), unique)
+write_csv(training_groups, "training_groups.csv")
 
 #### READ IN AND PREPROCESS TEST DATA ####
-# update and read in master CSV
-source("tfta_test_master.R") # must change server path before sourcing if different
-master_test <- read_csv("master_test.csv", col_types = "cciiicdiicccc") %>%
-    mutate_if(is.character, as.factor)
+# read in master CSV
+master_test <- read_csv("master_test.csv", col_types = "cciiicdiicccc")
 
 # add carrier duration info
 carriers <- read_csv(file.path("..", "Stimuli", "carrier_durations.csv"),
@@ -110,8 +116,8 @@ test <- master_test %>%
            # only keep correct trials
            correct == 1) %>%
 
-    # add trained info
-    left_join(trained_groups, by = "participant") %>%
+    # add training info
+    left_join(training_groups, by = "participant") %>%
     mutate(trained_t = ifelse(talker_set == talker_trained, "trained", "untrained"),
            trained_v = ifelse(vowel_pair == vowel_trained, "trained", "untrained"))
 
@@ -125,22 +131,14 @@ test$trained_t <- factor(test$trained_t, levels = c("untrained", "trained"),
 test$trained_v <- factor(test$trained_v, levels = c("untrained", "trained"),
                          labels = c("Untrained Vowels", "Trained Vowels"))
 
-#### COMPILE AND PREPROCESS TRANSCRIPTION DATA ####
-# compile master CSV
-tx_files <- list.files(file.path("transcription-scoring-completed"), full.names = TRUE)
-tx_list <- vector("list", length = length(tx_files))
-for (f in tx_files) {
-    print(paste0("[",match(f, tx_files),"/",length(tx_files),"] ",f))
-    tx_list[match(f, tx_files)] <- list(read_csv(f, col_types = "ccciiccciiii"))
-}
-tx_master <- suppressWarnings( # hide warning about participant factor levels
-    bind_rows(tx_list) %>%
-        left_join(trained_groups, by = "participant") %>%
-        mutate(talker_set = ifelse(talker <= 4, "setA", "setB"),
-               trained_t = ifelse(talker_set == talker_trained, "trained", "untrained"),
-               vowel_pair = ifelse(word_vowel %in% c("u", "o"), "pairA", "pairB"),
-               trained_v = ifelse(vowel_pair == vowel_trained, "trained", "untrained")) %>%
-        mutate_if(is.character, as.factor))
+#### READ IN AND PREPROCESS TRANSCRIPTION DATA ####
+master_transcription <- read_csv("master_transcription.csv", col_types = "ciciiccciiiicc")
+transcription <- master_transcription %>%
+    # add training info
+    left_join(training_groups, by = "participant") %>%
+    mutate(trained_t = ifelse(talker_set == talker_trained, "trained", "untrained"),
+           trained_v = ifelse(vowel_pair == vowel_trained, "trained", "untrained")) %>%
+    mutate_if(is.character, as.factor)
 
 #### TRAINING PLOT: d' BY SECTION ####
 dprime_section <- training %>%
@@ -672,7 +670,7 @@ test_rt_trained_combn_plot
 ggsave(file.path("plots-test", "rt_trainedv_combined.png"), width = 7.5, height = 6.5)
 
 #### TRANSCRIPTION BOXPLOT: ACCURACY BY TRAINED/UNTRAINED TALKERS, TRAINED VOWELS ####
-tx_trainedv <- tx_master %>%
+tx_trainedv <- transcription %>%
     filter(trained_v == "trained") %>%
     gather(key = part, value = score, c(9:12)) %>% # cols 9-12 = scores
     group_by(participant, talker_trained, trained_t, part) %>%
@@ -737,7 +735,7 @@ tx_trainedv_plot
 ggsave(file.path("plots-transcription", "accuracy_trainedvowels.png"), width = 8.5, height = 7.5)
 
 #### TRANSCRIPTION BOXPLOT: ACCURACY BY TRAINED/UNTRAINED TALKERS, ALL VOWELS ####
-tx_allv <- tx_master %>%
+tx_allv <- transcription %>%
     gather(key = part, value = score, c(9:12)) %>% # cols 9-12 = scores
     group_by(participant, talker_trained, trained_t, part) %>%
     summarize(score_total = sum(score), n = n()) %>%
@@ -801,7 +799,7 @@ tx_allv_plot
 ggsave(file.path("plots-transcription", "accuracy_allvowels.png"), width = 8.5, height = 7.5)
 
 #### TRANSCRIPTION BARPLOT: ACCURACY BY TRAINED/UNTRAINED TALKERS AND VOWELS ####
-tx_bar <- tx_master %>%
+tx_bar <- transcription %>%
     gather(key = part, value = score, c(9:12)) %>% # cols 9-12 = scores
     group_by(talker_trained, trained_t, trained_v, part) %>%
     summarize(score_total = sum(score), denom = n()) %>%
