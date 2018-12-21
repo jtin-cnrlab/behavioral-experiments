@@ -1,6 +1,6 @@
 # tfta_training_master.R
 # Jessica Tin
-# 28 Sept 2018
+# 21 Dec 2018
 #
 # Compiles training CSVs from each participant's data folder into a single master
 # CSV for TFTA.
@@ -30,7 +30,7 @@ csv_files <- list.files(path = grep("exclude",
 master_list <- vector("list", length = length(csv_files))
 
 # loop through each CSV file
-for(f in csv_files) {
+for (f in csv_files) {
     print(paste0("[",match(f, csv_files),"/",length(csv_files),"] ",f))
 
     # read in CSV as data frame
@@ -68,7 +68,10 @@ for(f in csv_files) {
 }
 
 # create master data frame from master_list data frames
-master_df <- bind_rows(master_list)
+master_df <- bind_rows(master_list) %>%
+    mutate_if(is.character, as.factor)
 
 # save resulting data frame as a CSV (in project folder > Analysis)
+print("Saving: master_training.csv")
 write_csv(master_df, "master_training.csv")
+print(file.path(getwd(), "master_training.csv"))
