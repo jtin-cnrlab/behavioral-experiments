@@ -1,6 +1,6 @@
 # tfta_test_master.R
 # Jessica Tin
-# 28 Sept 2018
+# 21 Dec 2018
 #
 # Compiles pre- and post-test CSVs from each participant's data folder into a
 # single master CSV for TFTA.
@@ -30,7 +30,7 @@ csv_files <- list.files(path = grep("exclude",
 master_list <- vector("list", length = length(csv_files))
 
 # loop through each CSV file
-for(f in csv_files) {
+for (f in csv_files) {
     print(paste0("[",match(f, csv_files),"/",length(csv_files),"] ",f))
 
     # read in CSV as data frame
@@ -58,12 +58,6 @@ for(f in csv_files) {
         # convert rt to ms
         mutate(rt = rt * 1000) %>%
 
-        # fix mislabeled condition
-        rowwise() %>%
-        mutate(condition = ifelse((participant %in% c("p3135", "p0002", "p1513", "p2282")) &&
-                                      (condition == "ioua_mixed_pairA_setB"),
-                                  "none_mixed_pairA_setB", condition)) %>%
-
         # split condition column
         separate(condition, c("carrier", "single_mixed", "vowel_pair", "talker_set"))
 
@@ -73,7 +67,10 @@ for(f in csv_files) {
 }
 
 # create master data frame from master_list data frames
-master_df <- bind_rows(master_list)
+master_df <- bind_rows(master_list) %>%
+    mutate_if(is.character, as.factor)
 
 # save resulting data frame as a CSV (in project folder > Analysis)
+print("Saving: master_test.csv")
 write_csv(master_df, "master_test.csv")
+print(file.path(getwd(), "master_test.csv"))
