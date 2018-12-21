@@ -140,6 +140,57 @@ transcription <- master_transcription %>%
            trained_v = ifelse(vowel_pair == vowel_trained, "trained", "untrained")) %>%
     mutate_if(is.character, as.factor)
 
+#### TRAINING PLOT: d' BY DAY ####
+dprime_day <- training %>%
+    group_by(participant, talker_trained, day) %>%
+    summarize(n = n(),
+              # if hit rate = 1, adjust to 1 - 1/2N
+              hit_rate = ifelse(
+                  sum(resp_signal == "hit") != sum(resp_signal %in% c("hit", "miss")),
+                  sum(resp_signal == "hit")/sum(resp_signal %in% c("hit", "miss")),
+                  1 - 1/(2*sum(resp_signal %in% c("hit", "miss")))),
+              # if false alarm rate = 0, adjust to 1/2N
+              fa_rate = ifelse(
+                  sum(resp_signal == "fa") > 0,
+                  sum(resp_signal == "fa")/sum(resp_signal %in% c("fa", "crej")),
+                  1/(2*sum(resp_signal %in% c("fa", "crej")))),
+              dprime = qnorm(hit_rate) - qnorm(fa_rate)) %>%
+    group_by(talker_trained, day) %>%
+    summarize(n = n(),
+              mean_hit_rate = mean(hit_rate),
+              mean_fa_rate = mean(fa_rate),
+              mean_dprime = mean(dprime),
+              error_dprime = sd(dprime)/sqrt(n)) %>%
+    mutate_at(vars(day), as.factor)
+
+dprime_day_plot <- ggplot(data = dprime_day,
+                          aes(x = day, y = mean_dprime, color = talker_trained)) +
+    geom_errorbar(aes(ymin = mean_dprime - error_dprime, ymax = mean_dprime + error_dprime),
+                  width = 0.1, alpha = 0.5) +
+    geom_point(size = 3) +
+    geom_line(aes(group = talker_trained), size = 1) +
+    scale_y_continuous(limits = c(0, 4)) +
+    labs(title = "d' by Day", y = "Mean d'",
+         subtitle = "592 trials per day",
+         x = "Day",
+         caption = paste0("setA n = ",
+                          unique(filter(dprime_section, talker_trained == "setA")$n),
+                          "\nsetB n = ",
+                          unique(filter(dprime_section, talker_trained == "setB")$n))) +
+    scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
+    theme(axis.title.x = element_text(size = 12),
+          plot.title = element_text(hjust = 0.5, face = "bold"),
+          plot.subtitle = element_text(face = "italic", size = 12, hjust = 0.5),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(),
+          axis.ticks.length = unit(0.5, "lines"),
+          panel.background = element_blank(),
+          legend.position = c(0.06, 0.13),
+          legend.background = element_rect(fill = "transparent"),
+          plot.caption = element_text(size = 10))
+dprime_day_plot
+ggsave(file.path("plots-training","dprime_byday.png"), width = 12, height = 6)
+
 #### TRAINING PLOT: d' BY SECTION ####
 dprime_section <- training %>%
     group_by(participant, talker_trained, day, section) %>%
@@ -337,6 +388,44 @@ dprime_qsection_plot <- ggplot(data = dprime_qsection,
           plot.caption = element_text(size = 10))
 dprime_qsection_plot
 ggsave(file.path("plots-training","dprime_byqsection.png"), width = 12, height = 6)
+
+#### TRAINING PLOT: RT BY DAY ####
+rt_day <- training %>%
+    group_by(participant, talker_trained, day) %>%
+    summarize(rt = mean(rt_3SD, na.rm = TRUE)) %>%
+    group_by(talker_trained, day) %>%
+    summarize(n = n(),
+              mean_rt = mean(rt),
+              error_rt = sd(rt)/sqrt(n)) %>%
+    mutate_at(vars(day), as.factor)
+
+rt_day_plot <- ggplot(data = rt_day,
+                      aes(x = day, y = mean_rt, color = talker_trained)) +
+    geom_errorbar(aes(ymin = mean_rt - error_rt, ymax = mean_rt + error_rt),
+                  width = 0.35, alpha = 0.5) +
+    geom_point(size = 3) +
+    geom_line(aes(group = talker_trained), size = 1) +
+    scale_y_continuous(limits = c(600, 1700), breaks = seq.int(600, 1700, 100)) +
+    labs(title = "RT by Day", y = "Mean RT (ms)",
+         subtitle = "592 trials per day",
+         x = "Day",
+         caption = paste0("setA n = ",
+                          unique(filter(rt_day, talker_trained == "setA")$n),
+                          "\nsetB n = ",
+                          unique(filter(rt_day, talker_trained == "setB")$n))) +
+    scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
+    theme(axis.title.x = element_text(size = 12),
+          plot.title = element_text(hjust = 0.5, face = "bold"),
+          plot.subtitle = element_text(face = "italic", size = 12, hjust = 0.5),
+          axis.text = element_text(size = 12),
+          axis.line = element_line(),
+          axis.ticks.length = unit(0.5, "lines"),
+          panel.background = element_blank(),
+          legend.position = c(0.06, 0.13),
+          #legend.background = element_rect(fill = "transparent"),
+          plot.caption = element_text(size = 10))
+rt_day_plot
+ggsave(file.path("plots-training","rt_byday.png"), width = 12, height = 6)
 
 #### TRAINING PLOT: RT BY SECTION ####
 rt_section <- training %>%
@@ -541,8 +630,8 @@ test_rt_trained <- test %>%
     group_by(carrier, single_mixed, test, talker_trained, trained_t) %>%
     summarize(mean_rt = mean(mean_rt))
 test_rt_trained_plot <- ggplot(data = test_rt_trained,
-                           aes(x = single_mixed, y = mean_rt, color = talker_trained,
-                               alpha = test, group = interaction(test, talker_trained))) +
+                               aes(x = single_mixed, y = mean_rt, color = talker_trained,
+                                   alpha = test, group = interaction(test, talker_trained))) +
     geom_hline(data = filter(test_rt_trained, talker_trained == "setA"),
                aes(yintercept = mean(mean_rt), linetype = "hlinemean", color = talker_trained,
                    group = talker_trained), alpha = 0.5, show.legend = TRUE) +
@@ -631,7 +720,7 @@ test_rt_all_plot <- ggplot(data = test_rt_all,
 test_rt_all_plot
 ggsave(file.path("plots-test", "rt_allv.png"), width = 7.5, height = 6.5)
 
-#### TEST PLOT: RT, TRAINED VOWELS, COMBINED TALKER SETS ####
+#### TEST PLOT: RT, TRAINED VOWELS, COMBINED TRAINING GROUPS ####
 test_rt_trained_combn <- test %>%
     filter(trained_v == "Trained Vowels") %>%
     group_by(participant, carrier, single_mixed, test, trained_t) %>%
@@ -639,8 +728,8 @@ test_rt_trained_combn <- test %>%
     group_by(carrier, single_mixed, test, trained_t) %>%
     summarize(mean_rt = mean(mean_rt))
 test_rt_trained_combn_plot <- ggplot(data = test_rt_trained_combn,
-                               aes(x = single_mixed, y = mean_rt,
-                                   alpha = test, group = test)) +
+                                     aes(x = single_mixed, y = mean_rt,
+                                         alpha = test, group = test)) +
     geom_hline(data = test_rt_trained_combn,
                aes(yintercept = mean(mean_rt), linetype = "hlinemean"),
                alpha = 0.5, show.legend = TRUE) +
@@ -734,6 +823,69 @@ tx_trainedv_plot <- ggplot(data = tx_trainedv, aes(x = part, y = score_percent*1
 tx_trainedv_plot
 ggsave(file.path("plots-transcription", "accuracy_trainedvowels.png"), width = 8.5, height = 7.5)
 
+#### TRANSCRIPTION BOXPLOT: TRAINED VOWELS, COMBINED TRAINING GROUPS ####
+tx_trainedv_combn <- transcription %>%
+    filter(trained_v == "trained") %>%
+    gather(key = part, value = score, c(9:12)) %>% # cols 9-12 = scores
+    group_by(participant, trained_t, part) %>%
+    summarize(score_total = sum(score), n = n()) %>%
+    mutate(score_percent = score_total/n)
+tx_trainedv_combn$part <- factor(tx_trainedv_combn$part,
+                                 levels = c("whole_word", "initial", "vowel", "final"),
+                                 labels = c("whole\nword", "initial", "vowel", "final"))
+tx_trainedv_combn_segments <- tx_trainedv_combn %>%
+    select(-score_total, -n) %>%
+    spread(key = trained_t, value = score_percent) %>%
+    rename(y = untrained, yend = trained) %>%
+    mutate(x = match(part, levels(part)) - 0.1,
+           xend = match(part, levels(part)) + 0.1)
+tx_trainedv_combn$trained_t <- factor(tx_trainedv_combn$trained_t,
+                                      levels = c("untrained", "trained"),
+                                      labels = c("Untrained Talkers", "Trained Talkers"))
+
+tx_trainedv_combn_plot <- ggplot(data = tx_trainedv_combn, aes(x = part, y = score_percent*100)) +
+    geom_hline(aes(yintercept = mean(tx_trainedv_combn$score_percent)*100, linetype = "hlinemean"),
+               color = "gray75", show.legend = TRUE) +
+    geom_boxplot(aes(fill = trained_t), coef = 999, position = position_dodge(.9)) +
+    geom_segment(data = tx_trainedv_combn_segments,
+                 aes(x = x, y = y*100, xend = xend, yend = yend*100, color = participant),
+                 alpha = 0.9) +
+    geom_point(data = filter(tx_trainedv_combn, trained_t == "Untrained Talkers"),
+               aes(group = participant), alpha = 0.6, position = position_nudge(x = -.1)) +
+    geom_point(data = filter(tx_trainedv_combn, trained_t == "Trained Talkers"),
+               aes(group = participant), alpha = 0.6, position = position_nudge(x = .1)) +
+    scale_y_continuous(limits = c(0, 101), breaks = seq.int(0,100,10),
+                       labels = function(x) paste0(x,"%"), expand = c(0,0),
+                       sec.axis = sec_axis(~.*.96, name = "Words Correct\n",
+                                           breaks = seq.int(0, 96, 12))) +
+    scale_linetype_manual(values = c("dashed"),
+                          labels = c(paste0(" mean = ",
+                                            round(mean(tx_trainedv_combn$score_percent)*100,
+                                                  digits = 2), "%"))) +
+    scale_color_viridis(discrete = TRUE, guide = FALSE) +
+    scale_fill_viridis(discrete = TRUE, option = "inferno", begin = .2, end = .7,
+                       direction = -1) +
+    labs(title = "Transcription Accuracy\n(Training Groups Combined)", subtitle = "Trained Vowels Only",
+         x = "", y = "Percent Correct",
+         caption = paste0("n = ",
+                          length(unique(tx_trainedv_combn$participant)))) +
+    theme(strip.placement = "outside",
+          strip.background = element_blank(),
+          strip.text = element_text(size = 12),
+          plot.title = element_text(hjust = 0.5, face = "bold"),
+          plot.subtitle = element_text(hjust = 0.5, face = "italic"),
+          axis.text = element_text(size = 11),
+          axis.title = element_text(size = 11),
+          panel.background = element_rect(fill = "gray97"),
+          #axis.line.y = element_line(),
+          legend.position = c(.88,.12),
+          legend.title = element_blank(),
+          legend.margin = margin(c(0,0,0,0)),
+          axis.ticks.length = unit(0.35, "lines"),
+          plot.caption = element_text(size = 10))
+tx_trainedv_combn_plot
+ggsave(file.path("plots-transcription", "accuracy_trainedv_combined.png"), width = 8.5, height = 7.5)
+
 #### TRANSCRIPTION BOXPLOT: ACCURACY BY TRAINED/UNTRAINED TALKERS, ALL VOWELS ####
 tx_allv <- transcription %>%
     gather(key = part, value = score, c(9:12)) %>% # cols 9-12 = scores
@@ -741,7 +893,7 @@ tx_allv <- transcription %>%
     summarize(score_total = sum(score), n = n()) %>%
     mutate(score_percent = score_total/n)
 tx_allv$part <- factor(tx_allv$part, levels = c("whole_word", "initial", "vowel", "final"),
-                           labels = c("whole\nword", "initial", "vowel", "final"))
+                       labels = c("whole\nword", "initial", "vowel", "final"))
 tx_allv_segments <- tx_allv %>%
     select(-score_total, -n) %>%
     spread(key = trained_t, value = score_percent) %>%
@@ -749,7 +901,7 @@ tx_allv_segments <- tx_allv %>%
     mutate(x = match(part, levels(part)) - 0.1,
            xend = match(part, levels(part)) + 0.1)
 tx_allv$trained_t <- factor(tx_allv$trained_t, levels = c("untrained", "trained"),
-                                labels = c("Untrained Talkers", "Trained Talkers"))
+                            labels = c("Untrained Talkers", "Trained Talkers"))
 
 tx_allv_plot <- ggplot(data = tx_allv, aes(x = part, y = score_percent*100)) +
     geom_hline(aes(yintercept = mean(tx_allv$score_percent)*100, linetype = "hlinemean"),
