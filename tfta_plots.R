@@ -1,6 +1,6 @@
 # tfta_plots.R
 # Jessica Tin
-# 21 Dec 2018
+# 3 Jan 2019
 #
 # Creates plots for TFTA.
 #
@@ -11,10 +11,12 @@ PerrachioneLab <- "/Volumes/PerrachioneLab" # Mac
 #PerrachioneLab <- "R:/PerrachioneLab" # Windows
 setwd(file.path(PerrachioneLab, "projects", "TFTA", "Analysis"))
 
-#### LOAD PACKAGES ####
+#### LOAD FUNCTIONS AND PACKAGES ####
 source(file.path(PerrachioneLab, "software", "r-scripts", "load_packages.R"))
 load_packages("dplyr", "magrittr", "readr", "tidyr", "purrr", "ggplot2", "viridis",
               "scales")
+
+source(file.path(PerrachioneLab, "software", "r-scripts", "within_3SD.R"))
 
 #### UPDATE MASTER CSVs ####
 # skip this section if master CSVs are up to date
@@ -25,7 +27,7 @@ source("tfta_transcription_master.R") # transcription data
 
 #### READ IN AND PREPROCESS TRAINING DATA ####
 # read in master CSV
-master_training <- read_csv("master_training.csv", col_types = "cciiicciiccdicc")
+master_training <- read_csv("master_training.csv", col_types = "cciiicciicccdicc")
 
 training <- master_training %>%
     filter(
@@ -35,16 +37,17 @@ training <- master_training %>%
         # remove skipped trials
         !is.na(rt)) %>%
 
-    # specify trials with log rt within 3 standard deviations of mean log rt
+    # only keep trials with log rt within 3 standard deviations of mean log rt
     group_by(participant, day) %>%
-    mutate(mean_logrt = mean(log(rt)),
-           sd_logrt = sd(log(rt))) %>%
-    rowwise() %>%
-    mutate(rt_3SD = ifelse((log(rt) <= mean_logrt + 3*sd_logrt) &&
-                               (log(rt) >= mean_logrt - 3*sd_logrt), rt, NA)) %>%
+    mutate(rt_3SD = within_3SD(rt)) %>%
+    ungroup() %>%
     filter(!is.na(rt_3SD)) %>%
 
     mutate(
+        # add half-section and quarter-section labels
+        hsection = paste0(section,"_",(trial %/% 74) + 1),
+        qsection = paste0(section,"_",(trial %/% 37) + 1),
+
         # compute sensitivity measures
         #
         #                RESPONSE
@@ -58,19 +61,27 @@ training <- master_training %>%
         resp_signal = ifelse(
             condition == "talker",
             # talker condition
-            case_when(
-                all(talker_resp == "num_1", correct == 1) ~ "hit",
-                all(talker_resp == "num_1", correct == 0) ~ "miss",
-                all(talker_resp == "num_2", correct == 1) ~ "crej",
-                all(talker_resp == "num_2", correct == 0) ~ "fa"),
+            pmap_chr(list(stimulus = cresp_talker, response = resp),
+                     function(stimulus, response)
+                         case_when(
+                             (stimulus == "num_1" && response == "num_1") ~ "hit",
+                             (stimulus == "num_1" && response == "num_2") ~ "miss",
+                             (stimulus == "num_2" && response == "num_1") ~ "fa",
+                             (stimulus == "num_2" && response == "num_2") ~ "crej")),
             # word condition
-            case_when(
-                all(word_resp == "num_1", correct == 1) ~ "hit",
-                all(word_resp == "num_1", correct == 0) ~ "miss",
-                all(word_resp == "num_2", correct == 1) ~ "crej",
-                all(word_resp == "num_2", correct == 0) ~ "fa")
+            pmap_chr(list(stimulus = cresp_word, response = resp),
+                     function(stimulus, response)
+                         case_when(
+                             (stimulus == "num_1" && response == "num_1") ~ "hit",
+                             (stimulus == "num_1" && response == "num_2") ~ "miss",
+                             (stimulus == "num_2" && response == "num_1") ~ "fa",
+                             (stimulus == "num_2" && response == "num_2") ~ "crej")
+            )
         )
-    ) %>% ungroup()
+    ) %>%
+
+    # convert all variables except RT columns to factors (+ manually include paRTicipant)
+    mutate_at(vars(-contains("rt"), participant), as.factor)
 
 #### SAVE TRAINING GROUPS ####
 # save which participants trained on which talkers/vowels
@@ -91,35 +102,34 @@ master_test %<>% left_join(carriers, by = c("talker" = "talker_number"))
 
 test <- master_test %>%
     filter(
-        # only plot data from participants who have finished day 3 of training
+        # only plot data from participants who have finished post-test
         participant %in% unique(filter(master_test, test == "post")$participant),
 
         # remove skipped trials
         !is.na(rt)) %>%
 
     # adjust rt for carrier trials
-    rowwise() %>%
-    mutate(rt = ifelse(carrier == "ioua", rt - carrier_duration, rt)) %>%
-    ungroup() %>%
+    mutate(rt = pmap_dbl(list(c = carrier, r = rt, d = carrier_duration),
+                         function(c, r, d) ifelse(c == "ioua", r - d, r))) %>%
     filter(rt > 0) %>% # exclude trials answered before target word
 
-    # specify trials with log rt within 3 standard deviations of mean log rt
+    # only keep trials with log rt within 3 standard deviations of mean log rt
     group_by(participant, test) %>%
-    mutate(mean_logrt = mean(log(rt)),
-           sd_logrt = sd(log(rt))) %>%
-    rowwise() %>%
-    mutate(rt_3SD = ifelse((log(rt) <= mean_logrt + 3*sd_logrt) &&
-                               (log(rt) >= mean_logrt - 3*sd_logrt), rt, NA)) %>%
+    mutate(rt_3SD = within_3SD(rt)) %>%
     ungroup() %>%
     filter(!is.na(rt_3SD),
 
            # only keep correct trials
            correct == 1) %>%
 
-    # add training info
-    left_join(training_groups, by = "participant") %>%
+    # add training info (with training_groups participant factors as characters)
+    left_join(mutate_all(training_groups, as.character), by = "participant") %>%
     mutate(trained_t = ifelse(talker_set == talker_trained, "trained", "untrained"),
-           trained_v = ifelse(vowel_pair == vowel_trained, "trained", "untrained"))
+           trained_v = ifelse(vowel_pair == vowel_trained, "trained", "untrained")) %>%
+
+    # convert all variables except RT columns and duration to factors (+ manually
+    # include paRTicipant)
+    mutate_at(vars(-contains("rt"), -carrier_duration, participant), as.factor)
 
 # refactor variables
 test$test <- factor(test$test, levels = c("pre", "post"))
@@ -133,35 +143,45 @@ test$trained_v <- factor(test$trained_v, levels = c("untrained", "trained"),
 
 #### READ IN AND PREPROCESS TRANSCRIPTION DATA ####
 master_transcription <- read_csv("master_transcription.csv", col_types = "ciciiccciiiicc")
+
 transcription <- master_transcription %>%
-    # add training info
-    left_join(training_groups, by = "participant") %>%
+    # add training info (with training_groups participant factors as characters)
+    left_join(mutate_all(training_groups, as.character), by = "participant") %>%
     mutate(trained_t = ifelse(talker_set == talker_trained, "trained", "untrained"),
            trained_v = ifelse(vowel_pair == vowel_trained, "trained", "untrained")) %>%
-    mutate_if(is.character, as.factor)
 
-#### TRAINING PLOT: d' BY DAY ####
-dprime_day <- training %>%
-    group_by(participant, talker_trained, day) %>%
-    summarize(n = n(),
-              # if hit rate = 1, adjust to 1 - 1/2N
-              hit_rate = ifelse(
-                  sum(resp_signal == "hit") != sum(resp_signal %in% c("hit", "miss")),
-                  sum(resp_signal == "hit")/sum(resp_signal %in% c("hit", "miss")),
-                  1 - 1/(2*sum(resp_signal %in% c("hit", "miss")))),
-              # if false alarm rate = 0, adjust to 1/2N
-              fa_rate = ifelse(
-                  sum(resp_signal == "fa") > 0,
-                  sum(resp_signal == "fa")/sum(resp_signal %in% c("fa", "crej")),
-                  1/(2*sum(resp_signal %in% c("fa", "crej")))),
-              dprime = qnorm(hit_rate) - qnorm(fa_rate)) %>%
-    group_by(talker_trained, day) %>%
-    summarize(n = n(),
-              mean_hit_rate = mean(hit_rate),
-              mean_fa_rate = mean(fa_rate),
-              mean_dprime = mean(dprime),
-              error_dprime = sd(dprime)/sqrt(n)) %>%
-    mutate_at(vars(day), as.factor)
+    # convert all variables except score columns to factors
+    mutate_at(vars(-whole_word, -initial, -vowel, -final), as.factor)
+
+#### d' SUMMARY DATAFRAMES ####
+summarize_dprime <- function(group_by_vars) {
+    group_by_vars <- c("participant", "talker_trained", group_by_vars)
+    summary_df <- training %>%
+        group_by_at(vars(group_by_vars)) %>%
+        summarize(n = n(),
+                  # if hit rate = 1, adjust to 1 - 1/2N
+                  hit_rate = ifelse(
+                      sum(resp_signal == "hit") != sum(resp_signal %in% c("hit", "miss")),
+                      sum(resp_signal == "hit")/sum(resp_signal %in% c("hit", "miss")),
+                      1 - 1/(2*sum(resp_signal %in% c("hit", "miss")))),
+                  # if false alarm rate = 0, adjust to 1/2N
+                  fa_rate = ifelse(
+                      sum(resp_signal == "fa") > 0,
+                      sum(resp_signal == "fa")/sum(resp_signal %in% c("fa", "crej")),
+                      1/(2*sum(resp_signal %in% c("fa", "crej")))),
+                  dprime = qnorm(hit_rate) - qnorm(fa_rate)) %>%
+        group_by_at(vars(group_by_vars[-1])) %>%
+        summarize(n = n(),
+                  mean_hit_rate = mean(hit_rate),
+                  mean_fa_rate = mean(fa_rate),
+                  mean_dprime = mean(dprime),
+                  error_dprime = sd(dprime)/sqrt(n)) %>%
+        ungroup()
+    return(summary_df)
+}
+
+#### d' BY DAY (TRAINING) ####
+dprime_day <- summarize_dprime("day")
 
 dprime_day_plot <- ggplot(data = dprime_day,
                           aes(x = day, y = mean_dprime, color = talker_trained)) +
@@ -174,9 +194,9 @@ dprime_day_plot <- ggplot(data = dprime_day,
          subtitle = "592 trials per day",
          x = "Day",
          caption = paste0("setA n = ",
-                          unique(filter(dprime_section, talker_trained == "setA")$n),
+                          unique(filter(dprime_day, talker_trained == "setA")$n),
                           "\nsetB n = ",
-                          unique(filter(dprime_section, talker_trained == "setB")$n))) +
+                          unique(filter(dprime_day, talker_trained == "setB")$n))) +
     scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
     theme(axis.title.x = element_text(size = 12),
           plot.title = element_text(hjust = 0.5, face = "bold"),
@@ -191,27 +211,8 @@ dprime_day_plot <- ggplot(data = dprime_day,
 dprime_day_plot
 ggsave(file.path("plots-training","dprime_byday.png"), width = 12, height = 6)
 
-#### TRAINING PLOT: d' BY SECTION ####
-dprime_section <- training %>%
-    group_by(participant, talker_trained, day, section) %>%
-    summarize(n = n(),
-              # if hit rate = 1, adjust to 1 - 1/2N
-              hit_rate = ifelse(
-                  sum(resp_signal == "hit") != sum(resp_signal %in% c("hit", "miss")),
-                  sum(resp_signal == "hit")/sum(resp_signal %in% c("hit", "miss")),
-                  1 - 1/(2*sum(resp_signal %in% c("hit", "miss")))),
-              # if false alarm rate = 0, adjust to 1/2N
-              fa_rate = ifelse(
-                  sum(resp_signal == "fa") > 0,
-                  sum(resp_signal == "fa")/sum(resp_signal %in% c("fa", "crej")),
-                  1/(2*sum(resp_signal %in% c("fa", "crej")))),
-              dprime = qnorm(hit_rate) - qnorm(fa_rate)) %>%
-    group_by(talker_trained, day, section) %>%
-    summarize(n = n(),
-              mean_hit_rate = mean(hit_rate),
-              mean_fa_rate = mean(fa_rate),
-              mean_dprime = mean(dprime),
-              error_dprime = sd(dprime)/sqrt(n))
+#### d' BY SECTION (TRAINING) ####
+dprime_section <- summarize_dprime(c("day", "section"))
 
 dprime_section_plot <- ggplot(data = dprime_section,
                               aes(x = section, y = mean_dprime, color = talker_trained)) +
@@ -226,7 +227,7 @@ dprime_section_plot <- ggplot(data = dprime_section,
     facet_grid(~ day, switch = "x", labeller = as_labeller(c(`1` = "Day 1",
                                                              `2` = "Day 2",
                                                              `3` = "Day 3"))) +
-    scale_x_continuous(labels = function(x) ifelse(x == "1", paste0("Section ",x), x)) +
+    scale_x_discrete(labels = function(x) ifelse(x == "1", paste0("Section ",x), x)) +
     scale_y_continuous(limits = c(0, 4)) +
     labs(title = "d' by Section by Day", y = "Mean d'",
          subtitle = "148 trials per section, 4 sections per day\n(592 trials total)",
@@ -252,29 +253,8 @@ dprime_section_plot <- ggplot(data = dprime_section,
 dprime_section_plot
 ggsave(file.path("plots-training","dprime_bysection.png"), width = 12, height = 6)
 
-#### TRAINING PLOT: d' BY HALF-SECTION ####
-dprime_hsection <- training %>%
-    arrange(talker_trained, day, section, trial) %>%
-    mutate(hsection = paste0(section,"_",(trial %/% 74) + 1)) %>%
-    group_by(participant, talker_trained, day, hsection) %>%
-    summarize(n = n(),
-              # if hit rate = 1, adjust to 1 - 1/2N
-              hit_rate = ifelse(
-                  sum(resp_signal == "hit") != sum(resp_signal %in% c("hit", "miss")),
-                  sum(resp_signal == "hit")/sum(resp_signal %in% c("hit", "miss")),
-                  1 - 1/(2*sum(resp_signal %in% c("hit", "miss")))),
-              # if false alarm rate = 0, adjust to 1/2N
-              fa_rate = ifelse(
-                  sum(resp_signal == "fa") > 0,
-                  sum(resp_signal == "fa")/sum(resp_signal %in% c("fa", "crej")),
-                  1/(2*sum(resp_signal %in% c("fa", "crej")))),
-              dprime = qnorm(hit_rate) - qnorm(fa_rate)) %>%
-    group_by(talker_trained, day, hsection) %>%
-    summarize(n = n(),
-              mean_hit_rate = mean(hit_rate),
-              mean_fa_rate = mean(fa_rate),
-              mean_dprime = mean(dprime),
-              error_dprime = sd(dprime)/sqrt(n))
+#### d' BY HALF-SECTION (TRAINING) ####
+dprime_hsection <- summarize_dprime(c("day", "hsection"))
 
 dprime_hsection_plot <- ggplot(data = dprime_hsection,
                                aes(x = hsection, y = mean_dprime, color = talker_trained)) +
@@ -319,31 +299,8 @@ dprime_hsection_plot <- ggplot(data = dprime_hsection,
 dprime_hsection_plot
 ggsave(file.path("plots-training","dprime_byhsection.png"), width = 12, height = 6)
 
-#### TRAINING PLOT: d' BY QUARTER-SECTION ####
-dprime_qsection <- training %>%
-    arrange(talker_trained, day, section, trial) %>%
-    mutate(qsection = paste0(section,"_",(trial %/% 37) + 1)) %>%
-    group_by(participant, talker_trained, day, qsection) %>%
-    summarize(n = n(),
-              # if hit rate = 0, adjust to 1/2N; if hit rate = 1, adjust to 1 - 1/2N
-              hit_rate = ifelse(
-                  sum(resp_signal == "hit") == 0,
-                  1/(2*sum(resp_signal %in% c("hit", "miss"))),
-                  ifelse(sum(resp_signal == "hit") < sum(resp_signal %in% c("hit", "miss")),
-                         sum(resp_signal == "hit")/sum(resp_signal %in% c("hit", "miss")),
-                         1 - 1/(2*sum(resp_signal %in% c("hit", "miss"))))),
-              # if false alarm rate = 0, adjust to 1/2N
-              fa_rate = ifelse(
-                  sum(resp_signal == "fa") > 0,
-                  sum(resp_signal == "fa")/sum(resp_signal %in% c("fa", "crej")),
-                  1/(2*sum(resp_signal %in% c("fa", "crej")))),
-              dprime = qnorm(hit_rate) - qnorm(fa_rate)) %>%
-    group_by(talker_trained, day, qsection) %>%
-    summarize(n = n(),
-              mean_hit_rate = mean(hit_rate),
-              mean_fa_rate = mean(fa_rate),
-              mean_dprime = mean(dprime),
-              error_dprime = sd(dprime)/sqrt(n))
+#### d' BY QUARTER-SECTION (TRAINING) ####
+dprime_qsection <- summarize_dprime(c("day", "qsection"))
 
 dprime_qsection_plot <- ggplot(data = dprime_qsection,
                                aes(x = qsection, y = mean_dprime, color = talker_trained)) +
@@ -389,15 +346,22 @@ dprime_qsection_plot <- ggplot(data = dprime_qsection,
 dprime_qsection_plot
 ggsave(file.path("plots-training","dprime_byqsection.png"), width = 12, height = 6)
 
-#### TRAINING PLOT: RT BY DAY ####
-rt_day <- training %>%
-    group_by(participant, talker_trained, day) %>%
-    summarize(rt = mean(rt_3SD, na.rm = TRUE)) %>%
-    group_by(talker_trained, day) %>%
-    summarize(n = n(),
-              mean_rt = mean(rt),
-              error_rt = sd(rt)/sqrt(n)) %>%
-    mutate_at(vars(day), as.factor)
+#### RT SUMMARY DATAFRAMES ####
+summarize_rt <- function(group_by_vars) {
+    group_by_vars <- c("participant", "talker_trained", group_by_vars)
+    summary_df <- training %>%
+        group_by_at(vars(group_by_vars)) %>%
+        summarize(rt = mean(rt_3SD, na.rm = TRUE)) %>%
+        group_by_at(vars(group_by_vars[-1])) %>%
+        summarize(n = n(),
+                  mean_rt = mean(rt),
+                  error_rt = sd(rt)/sqrt(n)) %>%
+        ungroup()
+    return(summary_df)
+}
+
+#### RT BY DAY (TRAINING) ####
+rt_day <- summarize_rt("day")
 
 rt_day_plot <- ggplot(data = rt_day,
                       aes(x = day, y = mean_rt, color = talker_trained)) +
@@ -427,14 +391,8 @@ rt_day_plot <- ggplot(data = rt_day,
 rt_day_plot
 ggsave(file.path("plots-training","rt_byday.png"), width = 12, height = 6)
 
-#### TRAINING PLOT: RT BY SECTION ####
-rt_section <- training %>%
-    group_by(participant, talker_trained, day, section) %>%
-    summarize(rt = mean(rt_3SD, na.rm = TRUE)) %>%
-    group_by(talker_trained, day, section) %>%
-    summarize(n = n(),
-              mean_rt = mean(rt),
-              error_rt = sd(rt)/sqrt(n))
+#### RT BY SECTION (TRAINING) ####
+rt_section <- summarize_rt(c("day", "section"))
 
 rt_section_plot <- ggplot(data = rt_section,
                           aes(x = section, y = mean_rt, color = talker_trained)) +
@@ -449,7 +407,7 @@ rt_section_plot <- ggplot(data = rt_section,
     facet_grid(~ day, switch = "x", labeller = as_labeller(c(`1` = "Day 1",
                                                              `2` = "Day 2",
                                                              `3` = "Day 3"))) +
-    scale_x_continuous(labels = function(x) ifelse(x == "1", paste0("Section ",x), x)) +
+    scale_x_discrete(labels = function(x) ifelse(x == "1", paste0("Section ",x), x)) +
     scale_y_continuous(limits = c(600, 1700), breaks = seq.int(600, 1700, 100)) +
     labs(title = "RT by Section by Day", y = "Mean RT (ms)",
          subtitle = "148 trials per section, 4 sections per day\n(592 trials total)",
@@ -475,16 +433,8 @@ rt_section_plot <- ggplot(data = rt_section,
 rt_section_plot
 ggsave(file.path("plots-training","rt_bysection.png"), width = 12, height = 6)
 
-#### TRAINING PLOT: RT BY HALF-SECTION ####
-rt_hsection <- training %>%
-    arrange(talker_trained, day, section, trial) %>%
-    mutate(hsection = paste0(section,"_",(trial %/% 74) + 1)) %>%
-    group_by(participant, talker_trained, day, hsection) %>%
-    summarize(rt = mean(rt_3SD, na.rm = TRUE)) %>%
-    group_by(talker_trained, day, hsection) %>%
-    summarize(n = n(),
-              mean_rt = mean(rt),
-              error_rt = sd(rt)/sqrt(n))
+#### RT BY HALF-SECTION (TRAINING) ####
+rt_hsection <- summarize_rt(c("day", "hsection"))
 
 rt_hsection_plot <- ggplot(data = rt_hsection,
                            aes(x = hsection, y = mean_rt, color = talker_trained)) +
@@ -530,16 +480,8 @@ rt_hsection_plot <- ggplot(data = rt_hsection,
 rt_hsection_plot
 ggsave(file.path("plots-training","rt_byhsection.png"), width = 12, height = 6)
 
-#### TRAINING PLOT: RT BY QUARTER-SECTION ####
-rt_qsection <- training %>%
-    arrange(talker_trained, day, section, trial) %>%
-    mutate(qsection = paste0(section,"_",(trial %/% 37) + 1)) %>%
-    group_by(participant, talker_trained, day, qsection) %>%
-    summarize(rt = mean(rt_3SD, na.rm = TRUE)) %>%
-    group_by(talker_trained, day, qsection) %>%
-    summarize(n = n(),
-              mean_rt = mean(rt),
-              error_rt = sd(rt)/sqrt(n))
+#### RT BY QUARTER-SECTION (TRAINING) ####
+rt_qsection <- summarize_rt(c("day", "qsection"))
 
 rt_qsection_plot <- ggplot(data = rt_qsection,
                            aes(x = qsection, y = mean_rt, color = talker_trained)) +
@@ -596,7 +538,7 @@ rt_bysection_boxplot <- ggplot(data = rt_box) +
     facet_wrap(~ talker_trained, labeller = as_labeller(c(`setA` = "Trained on setA Talkers",
                                                           `setB` = "Trained on setB Talkers")),
                scales = "free_y") +
-    scale_x_continuous(labels = function(x) paste0("Section ",x)) +
+    scale_x_discrete(labels = function(x) paste0("Section ",x)) +
     scale_y_continuous(limits = c(400, 2800), breaks = seq.int(400, 2800, 150)) +
     labs(title = "Training RT by Section by Day", y = "Mean RT (ms)",
          subtitle = "148 trials per section, 4 sections per day\n(592 trials total)",
