@@ -23,5 +23,5 @@ within_3SD <- function(vals, lognorm = TRUE) {
     # unless specified to use original values, log-normalize the values first
     norm_vals <- if (lognorm) log(vals) else vals
 
-    return(ifelse(abs(norm_vals - mean(norm_vals)) > 3*sd(norm_vals), vals, NA))
+    return(ifelse(abs(norm_vals - mean(norm_vals)) <= 3*sd(norm_vals), vals, NA))
 }
