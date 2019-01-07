@@ -159,7 +159,7 @@ transcription$trained_t <- factor(transcription$trained_t, levels = c("untrained
 transcription$trained_v <- factor(transcription$trained_v, levels = c("untrained", "trained"),
                                   labels = c("Untrained Vowels", "Trained Vowels"))
 
-#### d' SUMMARY DATAFRAMES ####
+#### FUNCTION: d' SUMMARY DATAFRAMES ####
 summarize_dprime <- function(group_by_vars) {
     group_by_vars <- c("participant", group_by_vars)
     summary_df <- training %>%
@@ -185,7 +185,7 @@ summarize_dprime <- function(group_by_vars) {
     return(summary_df)
 }
 
-#### d' PLOTS ####
+#### FUNCTION: d' PLOTS ####
 plot_dprime <- function(df, plot_title) {
     breakdown <- max(setdiff(names(df), c("talker_trained", "n", "mean_hit_rate",
                                           "mean_fa_rate", "mean_dprime", "error_dprime")))
@@ -194,15 +194,15 @@ plot_dprime <- function(df, plot_title) {
         scale_y_continuous(limits = c(0, 4), expand = c(0,0)) +
         labs(title = paste("d' by", plot_title), y = "Mean d'", x = "Day") +
         scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
-        theme(axis.title.x = element_text(size = 12),
-              plot.title = element_text(hjust = 0.5, face = "bold"),
+        theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+              plot.caption = element_text(size = 10),
+              axis.title.x = element_text(size = 12),
               axis.text = element_text(size = 12),
+              panel.background = element_blank(),
               axis.line = element_line(),
               axis.ticks.length = unit(0.5, "lines"),
-              panel.background = element_blank(),
               legend.position = c(0.06, 0.13),
-              legend.background = element_rect(fill = "transparent"),
-              plot.caption = element_text(size = 10))
+              legend.background = element_rect(fill = "transparent"))
 
     if ("talker_trained" %in% names(df)) {
         # plot training groups separately
@@ -252,11 +252,11 @@ plot_dprime <- function(df, plot_title) {
                                                                      `3` = "Day 3"))) +
             scale_x_discrete(labels = function(x) ifelse(endsWith(x, "5"), "",
                                                          paste0("Section ",x))) +
-            theme(strip.placement = "outside",
+            theme(axis.title.x = element_blank(),
+                  strip.placement = "outside",
                   strip.text = element_text(size = 12),
                   strip.background = element_blank(),
-                  panel.spacing = unit(0, "lines"),
-                  axis.title.x = element_blank())
+                  panel.spacing = unit(0, "lines"))
     }
 
     print(dprime_plot)
@@ -306,7 +306,7 @@ dprime_qsection_combined <- summarize_dprime(c("day", "qsection"))
 dprime_qsection_combn_plot <- plot_dprime(dprime_qsection_combined, "Quarter-Section")
 ggsave(file.path("plots-training","dprime_byqsection_combined.png"), width = 12, height = 6)
 
-#### RT SUMMARY DATAFRAMES ####
+#### FUNCTION: RT SUMMARY DATAFRAMES ####
 summarize_rt <- function(group_by_vars) {
     group_by_vars <- c("participant", group_by_vars)
     summary_df <- training %>%
@@ -320,7 +320,7 @@ summarize_rt <- function(group_by_vars) {
     return(summary_df)
 }
 
-#### RT PLOTS ####
+#### FUNCTION: RT PLOTS ####
 plot_rt <- function(df, plot_title) {
     breakdown <- max(setdiff(names(df), c("talker_trained", "n", "mean_rt", "error_rt")))
 
@@ -328,15 +328,15 @@ plot_rt <- function(df, plot_title) {
         scale_y_continuous(limits = c(750, 1750), breaks = seq.int(750, 1750, 100)) +
         labs(title = paste("RT by", plot_title), y = "Mean RT (ms)", x = "Day") +
         scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
-        theme(axis.title.x = element_text(size = 12),
-              plot.title = element_text(hjust = 0.5, face = "bold"),
+        theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+              plot.caption = element_text(size = 10),
+              axis.title.x = element_text(size = 12),
               axis.text = element_text(size = 12),
+              panel.background = element_blank(),
               axis.line = element_line(),
               axis.ticks.length = unit(0.5, "lines"),
-              panel.background = element_blank(),
               legend.position = c(0.06, 0.13),
-              legend.background = element_rect(fill = "transparent"),
-              plot.caption = element_text(size = 10))
+              legend.background = element_rect(fill = "transparent"))
 
     if ("talker_trained" %in% names(df)) {
         # plot training groups separately
@@ -385,11 +385,11 @@ plot_rt <- function(df, plot_title) {
                                                                      `3` = "Day 3"))) +
             scale_x_discrete(labels = function(x) ifelse(endsWith(x, "5"), "",
                                                          paste0("Section ",x))) +
-            theme(strip.placement = "outside",
+            theme(axis.title.x = element_blank(),
+                  strip.placement = "outside",
                   strip.text = element_text(size = 12),
                   strip.background = element_blank(),
-                  panel.spacing = unit(0, "lines"),
-                  axis.title.x = element_blank())
+                  panel.spacing = unit(0, "lines"))
     }
 
     print(rt_plot)
@@ -439,42 +439,85 @@ rt_qsection_combined <- summarize_rt(c("day", "qsection"))
 rt_qsection_combn_plot <- plot_rt(rt_qsection_combined, "Quarter-Section")
 ggsave(file.path("plots-training","rt_byqsection_combined.png"), width = 12, height = 6)
 
-#### TRAINING BOXPLOT: RT BY SECTION BY DAY ####
+#### FUNCTION: RT BOXPLOTS ####
 rt_box <- training %>%
     group_by(participant, talker_trained, day, section) %>%
-    summarize(rt = mean(rt_3SD, na.rm = TRUE))
+    summarize(rt = mean(rt_3SD, na.rm = TRUE)) %>%
+    mutate(day_section = paste0(day, "_", section))
 
-rt_bysection_boxplot <- ggplot(data = rt_box) +
-    geom_boxplot(aes(x = section, y = rt, fill = as.character(day),
-                     group = interaction(as.character(day), section)), coef = 999) +
-    facet_wrap(~ talker_trained, labeller = as_labeller(c(`setA` = "Trained on setA Talkers",
-                                                          `setB` = "Trained on setB Talkers")),
-               scales = "free_y") +
-    scale_x_discrete(labels = function(x) paste0("Section ",x)) +
-    scale_y_continuous(limits = c(400, 2800), breaks = seq.int(400, 2800, 150)) +
-    labs(title = "Training RT by Section by Day", y = "Mean RT (ms)",
-         subtitle = "148 trials per section, 4 sections per day\n(592 trials total)",
-         caption = paste0("setA n = ",
-                          unique(filter(rt_section, talker_trained == "setA")$n),
-                          "\nsetB n = ",
-                          unique(filter(rt_section, talker_trained == "setB")$n)),
-         fill = "Day") +
-    scale_fill_viridis(discrete = TRUE) +
-    theme(axis.title.x = element_blank(),
-          strip.placement = "outside",
-          strip.background = element_blank(),
-          plot.title = element_text(hjust = 0.5, face = "bold"),
-          plot.subtitle = element_text(face = "italic", size = 12, hjust = 0.5),
-          strip.text = element_text(size = 12),
-          axis.text.x = element_text(size = 11),
-          legend.position = c(0.13, 0.95),
-          legend.direction = "horizontal",
-          axis.line = element_line(),
-          axis.ticks.length = unit(0.5, "lines"),
-          panel.background = element_blank(),
-          plot.caption = element_text(size = 10))
-rt_bysection_boxplot
-ggsave(file.path("plots-training","rt_boxplots.png"), width = 8, height = 6)
+plot_rt_boxplot <- function(exclude = "none", ymin = 300, ymax = 4200) {
+    rt_boxplot <- ggplot(data = filter(rt_box, !participant %in% exclude),
+                         aes(x = day_section, y = rt)) +
+        geom_boxplot(aes(fill = section), coef = 999) +
+        geom_point(aes(group = participant), position = position_nudge(-.25), alpha = 0.1) +
+        geom_line(aes(group = participant), position = position_nudge(-.25), alpha = 0.1) +
+
+        # labels
+        facet_wrap(~ talker_trained, labeller = as_labeller(c(`setA` = "Trained on setA Talkers",
+                                                              `setB` = "Trained on setB Talkers")),
+                   scales = "free_y") +
+        scale_x_discrete( # hacking x-axis labels...
+            # empty strings for spacing
+            limits = c("", "1_1", "1_2", "1_3", "1_4", "", "2_1", "2_2", "2_3",
+                       "2_4", "", "3_1", "3_2", "3_3", "3_4", ""),
+            # section 2 = "Day" label, section 3 = day number label
+            labels = function(x) ifelse(endsWith(x, "2"), "Day",
+                                        ifelse(endsWith(x, "3"),
+                                               substr(x, 1, 1), ""))) +
+        scale_y_continuous(limits = c(ymin, ymax), breaks = seq.int(ymin, ymax, 300),
+                           expand = c(0,0)) +
+        labs(title = "Training RT Over Time", y = "Mean RT (ms)",
+             subtitle = paste("Participants excluded:", paste(exclude, collapse = ", ")),
+             caption = paste0("setA n = ",
+                              unique(filter(rt_section, talker_trained == "setA")$n),
+                              "\nsetB n = ",
+                              unique(filter(rt_section, talker_trained == "setB")$n)),
+             fill = "Section") +
+
+        # formatting
+        scale_fill_viridis(discrete = TRUE, guide = guide_legend(title.position = "top",
+                                                                 label.position = "bottom")) +
+        theme(
+            # titles and labels
+            plot.title = element_text(hjust = 0.5, face = "bold"),
+            plot.subtitle = element_text(size = 10, hjust = 0.5, face = "italic"),
+            axis.title.x = element_blank(),
+            axis.text.x = element_text(size = 11, face = "bold", color = "black"),
+            axis.title.y = element_text(face = "bold"),
+            plot.caption = element_text(size = 10),
+
+            # facets
+            strip.placement = "outside",
+            strip.text = element_text(size = 12, face = "bold"),
+            strip.background = element_blank(),
+            panel.background = element_blank(),
+
+            # axis lines
+            axis.line = element_line(),
+            axis.ticks.length = unit(0.5, "lines"),
+            axis.ticks.x = element_blank(),
+
+            # legend
+            legend.title = element_text(size = 9, face = "bold"),
+            legend.text = element_text(size = 8),
+            legend.position = c(0.915, 0.9),
+            legend.direction = "horizontal",
+            legend.background = element_rect(fill = "transparent"),
+            legend.box.background = element_rect(fill = "white"),
+            legend.key = element_rect(fill = "transparent"),
+            legend.spacing.x = unit(0, "lines"))
+    print(rt_boxplot)
+}
+
+#### RT BOXPLOTS (TRAINING) ####
+rt_boxplot_all <- plot_rt_boxplot()
+ggsave(file.path("plots-training","rt_boxplots.png"), width = 8.75, height = 6.75)
+
+rt_boxplot_excl1 <- plot_rt_boxplot("p1230", 300, 2700)
+ggsave(file.path("plots-training","rt_boxplots_excl1.png"), width = 8.75, height = 6.75)
+
+rt_boxplot_excl2 <- plot_rt_boxplot(c("p1230", "p8823"), 300, 2100)
+ggsave(file.path("plots-training","rt_boxplots_excl2.png"), width = 8.75, height = 6.75)
 
 #### TEST PLOT: RT, TRAINED VOWELS ####
 test_rt_trained <- test %>%
