@@ -1,6 +1,6 @@
 # tfta_plots.R
 # Jessica Tin
-# 3 Jan 2019
+# 7 Jan 2019
 #
 # Creates plots for TFTA.
 #
@@ -190,7 +190,6 @@ plot_dprime <- function(df, plot_title) {
     breakdown <- max(setdiff(names(df), c("talker_trained", "n", "mean_hit_rate",
                                           "mean_fa_rate", "mean_dprime", "error_dprime")))
 
-
     dprime_plot <- ggplot(data = df, aes_string(x = breakdown, y = "mean_dprime")) +
         scale_y_continuous(limits = c(0, 4), expand = c(0,0)) +
         labs(title = paste("d' by", plot_title), y = "Mean d'", x = "Day") +
@@ -217,13 +216,15 @@ plot_dprime <- function(df, plot_title) {
             # participants trained on setA
             geom_errorbar(data = df_setA, aes(ymin = mean_dprime - error_dprime,
                                               ymax = mean_dprime + error_dprime),
-                          width = 0.1, alpha = 0.5, position = position_nudge(x = -0.005)) +
+                          width = 0.01*nrow(df), alpha = 0.5,
+                          position = position_nudge(x = -0.005)) +
             geom_point(data = df_setA, size = 3, position = position_nudge(x = -0.005)) +
 
             # participants trained on setB
             geom_errorbar(data = df_setB, aes(ymin = mean_dprime - error_dprime,
                                               ymax = mean_dprime + error_dprime),
-                          width = 0.1, alpha = 0.5, position = position_nudge(x = 0.005)) +
+                          width = 0.01*nrow(df), alpha = 0.5,
+                          position = position_nudge(x = 0.005)) +
             geom_point(data = df_setB, size = 3, position = position_nudge(x = 0.005)) +
 
             labs(caption = paste0("setA n = ", unique(df_setA$n), "\nsetB n = ",
@@ -235,7 +236,7 @@ plot_dprime <- function(df, plot_title) {
             geom_line(aes(group = 1), size = 1) +
             geom_errorbar(aes(ymin = mean_dprime - error_dprime,
                               ymax = mean_dprime + error_dprime),
-                          width = 0.1, alpha = 0.5) +
+                          width = 0.01*nrow(df), alpha = 0.5) +
             geom_point(size = 3) +
 
             labs(subtitle = "Training Groups Combined",
@@ -244,7 +245,7 @@ plot_dprime <- function(df, plot_title) {
     }
 
     if (breakdown != "day") {
-        # plot each day side-by-side
+        # plot each day side-by-side using facets
         dprime_plot <- dprime_plot +
             facet_grid(~ day, switch = "x", labeller = as_labeller(c(`1` = "Day 1",
                                                                      `2` = "Day 2",
@@ -319,172 +320,124 @@ summarize_rt <- function(group_by_vars) {
     return(summary_df)
 }
 
-#### RT BY DAY (TRAINING) ####
-rt_day <- summarize_rt(c("talker_trained", "day"))
+#### RT PLOTS ####
+plot_rt <- function(df, plot_title) {
+    breakdown <- max(setdiff(names(df), c("talker_trained", "n", "mean_rt", "error_rt")))
 
-rt_day_plot <- ggplot(data = rt_day,
-                      aes(x = day, y = mean_rt, color = talker_trained)) +
-    geom_errorbar(aes(ymin = mean_rt - error_rt, ymax = mean_rt + error_rt),
-                  width = 0.35, alpha = 0.5) +
-    geom_point(size = 3) +
-    geom_line(aes(group = talker_trained), size = 1) +
-    scale_y_continuous(limits = c(600, 1700), breaks = seq.int(600, 1700, 100)) +
-    labs(title = "RT by Day", y = "Mean RT (ms)",
-         subtitle = "592 trials per day",
-         x = "Day",
-         caption = paste0("setA n = ",
-                          unique(filter(rt_day, talker_trained == "setA")$n),
-                          "\nsetB n = ",
-                          unique(filter(rt_day, talker_trained == "setB")$n))) +
-    scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
-    theme(axis.title.x = element_text(size = 12),
-          plot.title = element_text(hjust = 0.5, face = "bold"),
-          plot.subtitle = element_text(face = "italic", size = 12, hjust = 0.5),
-          axis.text = element_text(size = 12),
-          axis.line = element_line(),
-          axis.ticks.length = unit(0.5, "lines"),
-          panel.background = element_blank(),
-          legend.position = c(0.06, 0.13),
-          #legend.background = element_rect(fill = "transparent"),
-          plot.caption = element_text(size = 10))
-rt_day_plot
+    rt_plot <- ggplot(data = df, aes_string(x = breakdown, y = "mean_rt")) +
+        scale_y_continuous(limits = c(750, 1750), breaks = seq.int(750, 1750, 100)) +
+        labs(title = paste("RT by", plot_title), y = "Mean RT (ms)", x = "Day") +
+        scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
+        theme(axis.title.x = element_text(size = 12),
+              plot.title = element_text(hjust = 0.5, face = "bold"),
+              axis.text = element_text(size = 12),
+              axis.line = element_line(),
+              axis.ticks.length = unit(0.5, "lines"),
+              panel.background = element_blank(),
+              legend.position = c(0.06, 0.13),
+              legend.background = element_rect(fill = "transparent"),
+              plot.caption = element_text(size = 10))
+
+    if ("talker_trained" %in% names(df)) {
+        # plot training groups separately
+        df_setA <- filter(df, talker_trained == "setA")
+        df_setB <- filter(df, talker_trained == "setB")
+
+        rt_plot <- rt_plot +
+            aes(color = talker_trained) +
+            geom_line(aes(group = talker_trained), size = 1) +
+
+            # participants trained on setA
+            geom_errorbar(data = df_setA, aes(ymin = mean_rt - error_rt,
+                                              ymax = mean_rt + error_rt),
+                          width = 0.01*nrow(df), alpha = 0.5,
+                          position = position_nudge(x = -0.005)) +
+            geom_point(data = df_setA, size = 3, position = position_nudge(x = -0.005)) +
+
+            # participants trained on setB
+            geom_errorbar(data = df_setB, aes(ymin = mean_rt - error_rt,
+                                              ymax = mean_rt + error_rt),
+                          width = 0.01*nrow(df), alpha = 0.5,
+                          position = position_nudge(x = 0.005)) +
+            geom_point(data = df_setB, size = 3, position = position_nudge(x = 0.005)) +
+
+            labs(caption = paste0("setA n = ", unique(df_setA$n), "\nsetB n = ",
+                                  unique(df_setB$n)))
+    } else {
+        # plot training groups together
+        rt_plot <- rt_plot +
+            # all participants
+            geom_line(aes(group = 1), size = 1) +
+            geom_errorbar(aes(ymin = mean_rt - error_rt, ymax = mean_rt + error_rt),
+                          width = 0.01*nrow(df), alpha = 0.5) +
+            geom_point(size = 3) +
+
+            labs(subtitle = "Training Groups Combined",
+                 caption = paste("n =", unique(df$n))) +
+            theme(plot.subtitle = element_text(size = 11, face = "italic", hjust = 0.5))
+    }
+
+    if (breakdown != "day") {
+        # plot each day side-by-side using facets
+        rt_plot <- rt_plot +
+            facet_grid(~ day, switch = "x", labeller = as_labeller(c(`1` = "Day 1",
+                                                                     `2` = "Day 2",
+                                                                     `3` = "Day 3"))) +
+            scale_x_discrete(labels = function(x) ifelse(endsWith(x, "5"), "",
+                                                         paste0("Section ",x))) +
+            theme(strip.placement = "outside",
+                  strip.text = element_text(size = 12),
+                  strip.background = element_blank(),
+                  panel.spacing = unit(0, "lines"),
+                  axis.title.x = element_blank())
+    }
+
+    print(rt_plot)
+}
+
+#### RT BY DAY (TRAINING) ####
+# separate training groups
+rt_day <- summarize_rt(c("talker_trained", "day"))
+rt_day_plot <- plot_rt(rt_day, "Day")
 ggsave(file.path("plots-training","rt_byday.png"), width = 12, height = 6)
 
-#### RT BY SECTION (TRAINING) ####
-rt_section <- summarize_rt(c("talker_trained", "day", "section"))
+# combined training groups
+rt_day_combined <- summarize_rt("day")
+rt_day_combn_plot <- plot_rt(rt_day_combined, "Day")
+ggsave(file.path("plots-training","rt_byday_combined.png"), width = 12, height = 6)
 
-rt_section_plot <- ggplot(data = rt_section,
-                          aes(x = section, y = mean_rt, color = talker_trained)) +
-    geom_errorbar(data = filter(rt_section, talker_trained == "setA"),
-                  aes(ymin = mean_rt - error_rt, ymax = mean_rt + error_rt),
-                  width = 0.35, alpha = 0.5, position = position_nudge(x = -0.005)) +
-    geom_errorbar(data = filter(rt_section, talker_trained == "setB"),
-                  aes(ymin = mean_rt - error_rt, ymax = mean_rt + error_rt),
-                  width = 0.35, alpha = 0.5, position = position_nudge(x = 0.005)) +
-    geom_point(size = 3) +
-    geom_line(aes(group = talker_trained), size = 1) +
-    facet_grid(~ day, switch = "x", labeller = as_labeller(c(`1` = "Day 1",
-                                                             `2` = "Day 2",
-                                                             `3` = "Day 3"))) +
-    scale_x_discrete(labels = function(x) ifelse(x == "1", paste0("Section ",x), x)) +
-    scale_y_continuous(limits = c(600, 1700), breaks = seq.int(600, 1700, 100)) +
-    labs(title = "RT by Section by Day", y = "Mean RT (ms)",
-         subtitle = "148 trials per section, 4 sections per day\n(592 trials total)",
-         caption = paste0("setA n = ",
-                          unique(filter(rt_section, talker_trained == "setA")$n),
-                          "\nsetB n = ",
-                          unique(filter(rt_section, talker_trained == "setB")$n))) +
-    scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
-    theme(strip.placement = "outside",
-          strip.background = element_blank(),
-          panel.spacing = unit(0, "lines"),
-          axis.title.x = element_blank(),
-          plot.title = element_text(hjust = 0.5, face = "bold"),
-          plot.subtitle = element_text(face = "italic", size = 12, hjust = 0.5),
-          strip.text = element_text(size = 12),
-          axis.text = element_text(size = 12),
-          axis.line = element_line(),
-          axis.ticks.length = unit(0.5, "lines"),
-          panel.background = element_blank(),
-          legend.position = c(0.06, 0.13),
-          #legend.background = element_rect(fill = "transparent"),
-          plot.caption = element_text(size = 10))
-rt_section_plot
+#### RT BY SECTION (TRAINING) ####
+# separate training groups
+rt_section <- summarize_rt(c("talker_trained", "day", "section"))
+rt_section_plot <- plot_rt(rt_section, "Section")
 ggsave(file.path("plots-training","rt_bysection.png"), width = 12, height = 6)
 
-#### RT BY HALF-SECTION (TRAINING) ####
-rt_hsection <- summarize_rt(c("talker_trained", "day", "hsection"))
+# combined training groups
+rt_section_combined <- summarize_rt(c("day", "section"))
+rt_section_combn_plot <- plot_rt(rt_section_combined, "Section")
+ggsave(file.path("plots-training","rt_bysection_combined.png"), width = 12, height = 6)
 
-rt_hsection_plot <- ggplot(data = rt_hsection,
-                           aes(x = hsection, y = mean_rt, color = talker_trained)) +
-    geom_vline(aes(xintercept = 1), color = "gray70") +
-    geom_vline(aes(xintercept = 3), color = "gray80") +
-    geom_vline(aes(xintercept = 5), color = "gray80") +
-    geom_vline(aes(xintercept = 7), color = "gray80") +
-    geom_errorbar(data = filter(rt_hsection, talker_trained == "setA"),
-                  aes(ymin = mean_rt - error_rt, ymax = mean_rt + error_rt),
-                  width = 0.35, alpha = 0.5, position = position_nudge(x = -0.005)) +
-    geom_errorbar(data = filter(rt_hsection, talker_trained == "setB"),
-                  aes(ymin = mean_rt - error_rt, ymax = mean_rt + error_rt),
-                  width = 0.35, alpha = 0.5, position = position_nudge(x = 0.005)) +
-    geom_point(size = 3) +
-    geom_line(aes(group = talker_trained), size = 1) +
-    facet_grid(~ day, switch = "x", labeller = as_labeller(c(`1` = "Day 1",
-                                                             `2` = "Day 2",
-                                                             `3` = "Day 3"))) +
-    scale_x_discrete(labels = function(x) ifelse(endsWith(x, "_1"),
-                                                 paste0("Section ",substr(x,1,1)), "")) +
-    scale_y_continuous(limits = c(600, 1700), breaks = seq.int(600, 1700, 100)) +
-    labs(title = "RT by Half-Section by Day", y = "Mean RT (ms)",
-         subtitle = "74 trials per half-section, 4 sections per day\n(592 trials total)",
-         caption = paste0("setA n = ",
-                          unique(filter(rt_section, talker_trained == "setA")$n),
-                          "\nsetB n = ",
-                          unique(filter(rt_section, talker_trained == "setB")$n))) +
-    scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
-    theme(strip.placement = "outside",
-          strip.background = element_blank(),
-          panel.spacing = unit(0, "lines"),
-          axis.title.x = element_blank(),
-          plot.title = element_text(hjust = 0.5, face = "bold"),
-          plot.subtitle = element_text(face = "italic", size = 12, hjust = 0.5),
-          strip.text = element_text(size = 12),
-          axis.text = element_text(size = 12),
-          axis.line = element_line(),
-          axis.ticks.length = unit(0.5, "lines"),
-          panel.background = element_blank(),
-          legend.position = c(0.06, 0.13),
-          #legend.background = element_rect(fill = "transparent"),
-          plot.caption = element_text(size = 10))
-rt_hsection_plot
+#### RT BY HALF-SECTION (TRAINING) ####
+# separate training groups
+rt_hsection <- summarize_rt(c("talker_trained", "day", "hsection"))
+rt_hsection_plot <- plot_rt(rt_hsection, "Half-Section")
 ggsave(file.path("plots-training","rt_byhsection.png"), width = 12, height = 6)
 
-#### RT BY QUARTER-SECTION (TRAINING) ####
-rt_qsection <- summarize_rt(c("talker_trained", "day", "qsection"))
+# combined training groups
+rt_hsection_combined <- summarize_rt(c("day", "hsection"))
+rt_hsection_combn_plot <- plot_rt(rt_hsection_combined, "Half-Section")
+ggsave(file.path("plots-training","rt_byhsection_combined.png"), width = 12, height = 6)
 
-rt_qsection_plot <- ggplot(data = rt_qsection,
-                           aes(x = qsection, y = mean_rt, color = talker_trained)) +
-    geom_vline(aes(xintercept = 1), color = "gray70") +
-    geom_vline(aes(xintercept = 5), color = "gray80") +
-    geom_vline(aes(xintercept = 9), color = "gray80") +
-    geom_vline(aes(xintercept = 13), color = "gray80") +
-    geom_errorbar(data = filter(rt_qsection, talker_trained == "setA"),
-                  aes(ymin = mean_rt - error_rt, ymax = mean_rt + error_rt),
-                  width = 0.35, alpha = 0.5, position = position_nudge(x = -0.005)) +
-    geom_errorbar(data = filter(rt_qsection, talker_trained == "setB"),
-                  aes(ymin = mean_rt - error_rt, ymax = mean_rt + error_rt),
-                  width = 0.35, alpha = 0.5, position = position_nudge(x = 0.005)) +
-    geom_point(size = 3) +
-    geom_line(aes(group = talker_trained), size = 1) +
-    facet_grid(~ day, switch = "x", labeller = as_labeller(c(`1` = "Day 1",
-                                                             `2` = "Day 2",
-                                                             `3` = "Day 3"))) +
-    scale_x_discrete(labels = function(x) ifelse(endsWith(x, "_1"),
-                                                 paste0("Section ",substr(x,1,1)), "")) +
-    scale_y_continuous(limits = c(600, 1700), breaks = seq.int(600, 1700, 100)) +
-    labs(title = "RT by Quarter-Section by Day", y = "Mean RT (ms)",
-         subtitle = "37 trials per quarter-section, 4 sections per day\n(592 trials total)",
-         caption = paste0("setA n = ",
-                          unique(filter(rt_section, talker_trained == "setA")$n),
-                          "\nsetB n = ",
-                          unique(filter(rt_section, talker_trained == "setB")$n))) +
-    scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
-    theme(strip.placement = "outside",
-          strip.background = element_blank(),
-          panel.spacing = unit(0, "lines"),
-          axis.title.x = element_blank(),
-          plot.title = element_text(hjust = 0.5, face = "bold"),
-          plot.subtitle = element_text(face = "italic", size = 12, hjust = 0.5),
-          strip.text = element_text(size = 12),
-          axis.text = element_text(size = 12),
-          axis.line = element_line(),
-          axis.ticks.length = unit(0.5, "lines"),
-          panel.background = element_blank(),
-          legend.position = c(0.06, 0.13),
-          #legend.background = element_rect(fill = "transparent"),
-          plot.caption = element_text(size = 10))
-rt_qsection_plot
+#### RT BY QUARTER-SECTION (TRAINING) ####
+# separate training groups
+rt_qsection <- summarize_rt(c("talker_trained", "day", "qsection"))
+rt_qsection_plot <- plot_rt(rt_qsection, "Quarter-Section")
 ggsave(file.path("plots-training","rt_byqsection.png"), width = 12, height = 6)
+
+# combined training groups
+rt_qsection_combined <- summarize_rt(c("day", "qsection"))
+rt_qsection_combn_plot <- plot_rt(rt_qsection_combined, "Quarter-Section")
+ggsave(file.path("plots-training","rt_byqsection_combined.png"), width = 12, height = 6)
 
 #### TRAINING BOXPLOT: RT BY SECTION BY DAY ####
 rt_box <- training %>%
