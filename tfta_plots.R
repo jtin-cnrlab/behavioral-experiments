@@ -299,7 +299,7 @@ for (b in c("day", "section", "hsection", "qsection")) {
                file.path("plots-training",paste0("dprime_by",b,"_combined.png\n"))))
 }
 
-#### FUNCTION: SUMMARIZE TRAINING RT ####
+#### FUNCTION: TRAINING RT ####
 plot_training_rt <- function(breakdown = "day", combined_groups = FALSE) {
     group_by_vars <- c("participant", "talker_trained", breakdown)
     if (breakdown != "day") assign("group_by_vars", append(group_by_vars, "day", 2))
@@ -425,7 +425,7 @@ for (b in c("day", "section", "hsection", "qsection")) {
                file.path("plots-training",paste0("rt_by",b,"_combined.png\n"))))
 }
 
-#### FUNCTION: PLOT RT BOXPLOTS ####
+#### FUNCTION: RT BOXPLOTS ####
 plot_training_box <- function(exclude = "none", ymin = 300, ymax = 4200) {
     rt_box <- training  %>%
         filter(!participant %in% exclude) %>%
@@ -479,7 +479,7 @@ plot_training_box <- function(exclude = "none", ymin = 300, ymax = 4200) {
             panel.background = element_blank(),
 
             # axis lines
-            axis.line = element_line(),
+            axis.line.y = element_line(),
             axis.ticks.length = unit(0.5, "lines"),
             axis.ticks.x = element_blank(),
 
@@ -495,7 +495,7 @@ plot_training_box <- function(exclude = "none", ymin = 300, ymax = 4200) {
     print(rt_boxplot)
 }
 
-#### PLOT: RT BOXPLOTS ####
+#### PLOT RT BOXPLOTS ####
 rt_boxplot_all <- plot_training_box()
 ggsave(file.path("plots-training","rt_boxplots.png"), width = 8.75, height = 6.75)
 
@@ -598,197 +598,115 @@ test_rt_allv_combn_plot <- plot_test_rt(all_vowels = TRUE, combined_groups = TRU
 test_rt_allv_combined <- test_rt_allv_combn_plot$data
 ggsave(file.path("plots-test", "rt_allv_combined.png"), width = 5.75, height = 6.5)
 
-#### TRANSCRIPTION BOXPLOT: ACCURACY BY TRAINED/UNTRAINED TALKERS, TRAINED VOWELS ####
-tx_trainedv <- transcription %>%
-    filter(trained_v == "trained") %>%
-    gather(key = part, value = score, c(9:12)) %>% # cols 9-12 = scores
-    group_by(participant, talker_trained, trained_t, part) %>%
-    summarize(score_total = sum(score), n = n()) %>%
-    mutate(score_percent = score_total/n)
-tx_trainedv$part <- factor(tx_trainedv$part, levels = c("whole_word", "initial", "vowel", "final"),
-                           labels = c("whole\nword", "initial", "vowel", "final"))
-tx_trainedv_segments <- tx_trainedv %>%
-    select(-score_total, -n) %>%
-    spread(key = trained_t, value = score_percent) %>%
-    rename(y = untrained, yend = trained) %>%
-    mutate(x = match(part, levels(part)) - 0.1,
-           xend = match(part, levels(part)) + 0.1)
-tx_trainedv$trained_t <- factor(tx_trainedv$trained_t, levels = c("untrained", "trained"),
-                                labels = c("Untrained Talkers", "Trained Talkers"))
+#### FUNCTION: TRANSCRIPTION ACCURACY ####
+plot_tx <- function(all_vowels = FALSE, combined_groups = FALSE) {
+    if (all_vowels) {
+        df <- transcription
+        s <- "All Vowels"
+    } else {
+        df <- filter(transcription, trained_v == "Trained Vowels")
+        s <- "Trained Vowels Only"
+    }
 
-tx_trainedv_plot <- ggplot(data = tx_trainedv, aes(x = part, y = score_percent*100)) +
-    geom_hline(aes(yintercept = mean(tx_trainedv$score_percent)*100, linetype = "hlinemean"),
-               color = "gray75", show.legend = TRUE) +
-    geom_boxplot(aes(fill = trained_t), coef = 999, position = position_dodge(.9)) +
-    geom_segment(data = tx_trainedv_segments,
-                 aes(x = x, y = y*100, xend = xend, yend = yend*100, color = participant),
-                 alpha = 0.9) +
-    geom_point(data = filter(tx_trainedv, trained_t == "Untrained Talkers"),
-               aes(group = participant), alpha = 0.6, position = position_nudge(x = -.1)) +
-    geom_point(data = filter(tx_trainedv, trained_t == "Trained Talkers"),
-               aes(group = participant), alpha = 0.6, position = position_nudge(x = .1)) +
-    facet_grid(~ talker_trained, labeller = as_labeller(c(`setA` = "Trained on setA Talkers",
-                                                          `setB` = "Trained on setB Talkers"))) +
-    scale_y_continuous(limits = c(0, 101), breaks = seq.int(0,100,10),
-                       labels = function(x) paste0(x,"%"), expand = c(0,0),
-                       sec.axis = sec_axis(~.*.96, name = "Words Correct\n",
-                                           breaks = seq.int(0, 96, 12))) +
-    scale_linetype_manual(values = c("dashed"),
-                          labels = c(paste0(" mean = ",
-                                            round(mean(tx_trainedv$score_percent)*100,
-                                                  digits = 2), "%"))) +
-    scale_color_viridis(discrete = TRUE, guide = FALSE) +
-    scale_fill_viridis(discrete = TRUE, option = "inferno", begin = .2, end = .7,
-                       direction = -1) +
-    labs(title = "Transcription Accuracy", subtitle = "Trained Vowels Only",
-         x = "", y = "Percent Correct",
-         caption = paste0("setA n = ",
-                          length(unique(filter(tx_trainedv, talker_trained == "setA")$participant)),
-                          "\nsetB n = ",
-                          length(unique(filter(tx_trainedv, talker_trained == "setB")$participant)))) +
-    theme(strip.placement = "outside",
-          strip.background = element_blank(),
-          strip.text = element_text(size = 12),
-          plot.title = element_text(hjust = 0.5, face = "bold"),
-          plot.subtitle = element_text(hjust = 0.5, face = "italic"),
-          axis.text = element_text(size = 11),
-          axis.title = element_text(size = 11),
-          panel.background = element_rect(fill = "gray97"),
-          #axis.line.y = element_line(),
-          legend.position = c(.88,.12),
-          legend.title = element_blank(),
-          legend.margin = margin(c(0,0,0,0)),
-          axis.ticks.length = unit(0.35, "lines"),
-          plot.caption = element_text(size = 10))
-tx_trainedv_plot
-ggsave(file.path("plots-transcription", "accuracy_trainedvowels.png"), width = 8.5, height = 7.5)
+    group_by_vars <- c("participant", "talker_trained", "trained_t", "part")
+    if (combined_groups) {
+        group_by_vars <- group_by_vars[-2]
+        s <- paste0(s, ", Training Groups Combined")
+    }
 
-#### TRANSCRIPTION BOXPLOT: TRAINED VOWELS, COMBINED TRAINING GROUPS ####
-tx_trainedv_combn <- transcription %>%
-    filter(trained_v == "trained") %>%
-    gather(key = part, value = score, c(9:12)) %>% # cols 9-12 = scores
-    group_by(participant, trained_t, part) %>%
-    summarize(score_total = sum(score), n = n()) %>%
-    mutate(score_percent = score_total/n)
-tx_trainedv_combn$part <- factor(tx_trainedv_combn$part,
-                                 levels = c("whole_word", "initial", "vowel", "final"),
-                                 labels = c("whole\nword", "initial", "vowel", "final"))
-tx_trainedv_combn_segments <- tx_trainedv_combn %>%
-    select(-score_total, -n) %>%
-    spread(key = trained_t, value = score_percent) %>%
-    rename(y = untrained, yend = trained) %>%
-    mutate(x = match(part, levels(part)) - 0.1,
-           xend = match(part, levels(part)) + 0.1)
-tx_trainedv_combn$trained_t <- factor(tx_trainedv_combn$trained_t,
-                                      levels = c("untrained", "trained"),
-                                      labels = c("Untrained Talkers", "Trained Talkers"))
-
-tx_trainedv_combn_plot <- ggplot(data = tx_trainedv_combn, aes(x = part, y = score_percent*100)) +
-    geom_hline(aes(yintercept = mean(tx_trainedv_combn$score_percent)*100, linetype = "hlinemean"),
-               color = "gray75", show.legend = TRUE) +
-    geom_boxplot(aes(fill = trained_t), coef = 999, position = position_dodge(.9)) +
-    geom_segment(data = tx_trainedv_combn_segments,
-                 aes(x = x, y = y*100, xend = xend, yend = yend*100, color = participant),
-                 alpha = 0.9) +
-    geom_point(data = filter(tx_trainedv_combn, trained_t == "Untrained Talkers"),
-               aes(group = participant), alpha = 0.6, position = position_nudge(x = -.1)) +
-    geom_point(data = filter(tx_trainedv_combn, trained_t == "Trained Talkers"),
-               aes(group = participant), alpha = 0.6, position = position_nudge(x = .1)) +
-    scale_y_continuous(limits = c(0, 101), breaks = seq.int(0,100,10),
-                       labels = function(x) paste0(x,"%"), expand = c(0,0),
-                       sec.axis = sec_axis(~.*.96, name = "Words Correct\n",
-                                           breaks = seq.int(0, 96, 12))) +
-    scale_linetype_manual(values = c("dashed"),
-                          labels = c(paste0(" mean = ",
-                                            round(mean(tx_trainedv_combn$score_percent)*100,
-                                                  digits = 2), "%"))) +
-    scale_color_viridis(discrete = TRUE, guide = FALSE) +
-    scale_fill_viridis(discrete = TRUE, option = "inferno", begin = .2, end = .7,
-                       direction = -1) +
-    labs(title = "Transcription Accuracy\n(Training Groups Combined)", subtitle = "Trained Vowels Only",
-         x = "", y = "Percent Correct",
-         caption = paste0("n = ",
-                          length(unique(tx_trainedv_combn$participant)))) +
-    theme(strip.placement = "outside",
-          strip.background = element_blank(),
-          strip.text = element_text(size = 12),
-          plot.title = element_text(hjust = 0.5, face = "bold"),
-          plot.subtitle = element_text(hjust = 0.5, face = "italic"),
-          axis.text = element_text(size = 11),
-          axis.title = element_text(size = 11),
-          panel.background = element_rect(fill = "gray97"),
-          #axis.line.y = element_line(),
-          legend.position = c(.88,.12),
-          legend.title = element_blank(),
-          legend.margin = margin(c(0,0,0,0)),
-          axis.ticks.length = unit(0.35, "lines"),
-          plot.caption = element_text(size = 10))
-tx_trainedv_combn_plot
-ggsave(file.path("plots-transcription", "accuracy_trainedv_combined.png"), width = 8.5, height = 7.5)
-
-#### TRANSCRIPTION BOXPLOT: ACCURACY BY TRAINED/UNTRAINED TALKERS, ALL VOWELS ####
-tx_allv <- transcription %>%
-    gather(key = part, value = score, c(9:12)) %>% # cols 9-12 = scores
-    group_by(participant, talker_trained, trained_t, part) %>%
-    summarize(score_total = sum(score), n = n()) %>%
-    mutate(score_percent = score_total/n)
-tx_allv$part <- factor(tx_allv$part, levels = c("whole_word", "initial", "vowel", "final"),
+    df %<>% gather(key = part, value = score, c(9:12)) %>% # cols 9-12 = scores
+        group_by_at(vars(group_by_vars)) %>%
+        summarize(n = n(), score_total = sum(score)) %>%
+        mutate(score_percent = score_total/n)
+    df$part <-  factor(df$part, levels = c("whole_word", "initial", "vowel", "final"),
                        labels = c("whole\nword", "initial", "vowel", "final"))
-tx_allv_segments <- tx_allv %>%
-    select(-score_total, -n) %>%
-    spread(key = trained_t, value = score_percent) %>%
-    rename(y = untrained, yend = trained) %>%
-    mutate(x = match(part, levels(part)) - 0.1,
-           xend = match(part, levels(part)) + 0.1)
-tx_allv$trained_t <- factor(tx_allv$trained_t, levels = c("untrained", "trained"),
-                            labels = c("Untrained Talkers", "Trained Talkers"))
 
-tx_allv_plot <- ggplot(data = tx_allv, aes(x = part, y = score_percent*100)) +
-    geom_hline(aes(yintercept = mean(tx_allv$score_percent)*100, linetype = "hlinemean"),
-               color = "gray75", show.legend = TRUE) +
-    geom_boxplot(aes(fill = trained_t), coef = 999, position = position_dodge(.9)) +
-    geom_segment(data = tx_allv_segments,
-                 aes(x = x, y = y*100, xend = xend, yend = yend*100, color = participant),
-                 alpha = 0.9) +
-    geom_point(data = filter(tx_allv, trained_t == "Untrained Talkers"),
-               aes(group = participant), alpha = 0.6, position = position_nudge(x = -.1)) +
-    geom_point(data = filter(tx_allv, trained_t == "Trained Talkers"),
-               aes(group = participant), alpha = 0.6, position = position_nudge(x = .1)) +
-    facet_grid(~ talker_trained, labeller = as_labeller(c(`setA` = "Trained on setA Talkers",
-                                                          `setB` = "Trained on setB Talkers"))) +
-    scale_y_continuous(limits = c(0, 101), breaks = seq.int(0,100,10),
-                       labels = function(x) paste0(x,"%"), expand = c(0,0),
-                       sec.axis = sec_axis(~.*.96, name = "Words Correct\n",
-                                           breaks = seq.int(0, 96, 12))) +
-    scale_linetype_manual(values = c("dashed"),
-                          labels = c(paste0(" mean = ",
-                                            round(mean(tx_allv$score_percent)*100,
-                                                  digits = 2), "%"))) +
-    scale_color_viridis(discrete = TRUE, guide = FALSE) +
-    scale_fill_viridis(discrete = TRUE, option = "inferno", begin = .2, end = .7,
-                       direction = -1) +
-    labs(title = "Transcription Accuracy", subtitle = "All Vowels",
-         x = "", y = "Percent Correct",
-         caption = paste0("setA n = ",
-                          length(unique(filter(tx_allv, talker_trained == "setA")$participant)),
-                          "\nsetB n = ",
-                          length(unique(filter(tx_allv, talker_trained == "setB")$participant)))) +
-    theme(strip.placement = "outside",
-          strip.background = element_blank(),
-          strip.text = element_text(size = 12),
-          plot.title = element_text(hjust = 0.5, face = "bold"),
-          plot.subtitle = element_text(hjust = 0.5, face = "italic"),
-          axis.text = element_text(size = 11),
-          axis.title = element_text(size = 11),
-          panel.background = element_rect(fill = "gray97"),
-          #axis.line.y = element_line(),
-          legend.position = c(.88,.12),
-          legend.title = element_blank(),
-          legend.margin = margin(c(0,0,0,0)),
-          axis.ticks.length = unit(0.35, "lines"),
-          plot.caption = element_text(size = 10))
-tx_allv_plot
-ggsave(file.path("plots-transcription", "accuracy_allvowels.png"), width = 8.5, height = 7.5)
+    df_segments <- df %>%
+        select(-score_total, -n) %>%
+        spread(key = trained_t, value = score_percent) %>%
+        rename(y = "Untrained Talkers",
+               yend = "Trained Talkers") %>%
+        mutate(x = match(part, levels(part)) - 0.15,
+               xend = match(part, levels(part)) + 0.15)
+
+    tx_plot <- ggplot(data = df, aes(x = part, y = score_percent*100)) +
+        # boxplot (all participants)
+        geom_boxplot(aes(fill = trained_t), coef = 999, position = position_dodge(1)) +
+
+        # individual participant points and segments
+        geom_segment(data = df_segments, aes(x = x, y = y*100, xend = xend,
+                                             yend = yend*100),#, color = participant),
+                     alpha = 0.3) +
+        geom_point(data = filter(df, trained_t == "Untrained Talkers"),
+                   aes(group = participant), alpha = 0.3,
+                   position = position_nudge(x = -.15)) +
+        geom_point(data = filter(df, trained_t == "Trained Talkers"),
+                   aes(group = participant), alpha = 0.3,
+                   position = position_nudge(x = .15)) +
+
+        scale_y_continuous(limits = c(0, 101), breaks = seq.int(0,100,10),
+                           labels = function(x) paste0(x,"%"), expand = c(0,0),
+                           sec.axis = sec_axis(~.*.96, name = "Words Correct\n",
+                                               breaks = seq.int(0, 96, 12))) +
+        labs(title = "Transcription Accuracy", subtitle = s, x = "", y = "Percent Correct") +
+        #scale_color_viridis(discrete = TRUE, guide = FALSE) +
+        scale_fill_viridis(discrete = TRUE, option = "inferno", begin = .2, end = .7,
+                           direction = -1) +
+        theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+              plot.subtitle = element_text(hjust = 0.5, face = "italic"),
+              plot.caption = element_text(size = 10),
+              axis.title = element_text(size = 11),
+              axis.text = element_text(size = 11),
+              panel.background = element_rect(fill = "gray97"),
+              #axis.line.y = element_line(),
+              axis.ticks.length = unit(0.3, "lines"),
+              legend.title = element_blank(),
+              legend.margin = margin(c(0,0,0,0)))
+
+    if (!combined_groups) {
+        # plot training groups separately
+        df_setA <- filter(df, talker_trained == "setA")
+        df_setB <- filter(df, talker_trained == "setB")
+
+        tx_plot <- tx_plot +
+            facet_grid(~ talker_trained,
+                       labeller = as_labeller(c(`setA` = "Trained on setA Talkers",
+                                                `setB` = "Trained on setB Talkers"))) +
+            labs(caption = paste0("setA n = ", length(unique(df_setA$participant)),
+                                  "\nsetB n = ", length(unique(df_setB$participant)))) +
+            theme(strip.placement = "outside",
+                  strip.background = element_blank(),
+                  strip.text = element_text(size = 11),
+                  legend.position = c(.87,.08))
+    } else {
+        tx_plot <- tx_plot +
+            labs(caption = paste0("n = ", length(unique(df$participant)), "\n")) +
+            theme(legend.position = c(.79,.08))
+    }
+
+    print(tx_plot)
+}
+
+#### PLOT TRANSCRIPTION ACCURACY ####
+tx_acc_plot <- plot_tx()
+tx_acc <- tx_acc_plot$data
+ggsave(file.path("plots-transcription", "accuracy_trainedv.png"),
+       width = 6.5, height = 5.5)
+
+tx_acc_combn_plot <- plot_tx(combined_groups = TRUE)
+tx_acc_combined <- tx_acc_combn_plot$data
+ggsave(file.path("plots-transcription", "accuracy_trainedv_combined.png"),
+       width = 4.5, height = 5)
+
+tx_acc_allv_plot <- plot_tx(all_vowels = TRUE)
+tx_acc_allv <- tx_acc_allv_plot$data
+ggsave(file.path("plots-transcription", "accuracy_allv.png"),
+       width = 6.5, height = 5.5)
+
+tx_acc_allv_combn_plot <- plot_tx(all_vowels = TRUE, combined_groups = TRUE)
+tx_acc_allv_combined <- tx_acc_allv_combn_plot$data
+ggsave(file.path("plots-transcription", "accuracy_allv_combined.png"),
+       width = 4.5, height = 5)
 
 #### TRANSCRIPTION BARPLOT: ACCURACY BY TRAINED/UNTRAINED TALKERS AND VOWELS ####
 tx_bar <- transcription %>%
@@ -798,14 +716,10 @@ tx_bar <- transcription %>%
     mutate(pct = score_total/denom)
 tx_bar$part <- factor(tx_bar$part, levels = c("whole_word", "initial", "vowel", "final"),
                       labels = c("whole\nword", "initial", "vowel", "final"))
-tx_bar$trained_t <- factor(tx_bar$trained_t, levels = c("untrained", "trained"),
-                           labels = c("Untrained Talkers", "Trained Talkers"))
-tx_bar$trained_v <- factor(tx_bar$trained_v, levels = c("untrained", "trained"),
-                           labels = c("Untrained Vowels", "Trained Vowels"))
 
 tx_bar_plot <- ggplot(data = tx_bar, aes(x = part, y = pct*100)) +
     geom_col(aes(fill = trained_t), position = position_dodge()) +
-    facet_grid(trained_v ~ talker_trained,
+    facet_grid(talker_trained ~ trained_v,
                labeller = as_labeller(c(`setA` = "Trained on setA Talkers",
                                         `setB` = "Trained on setB Talkers",
                                         `Untrained Vowels` = "Untrained Vowels",
@@ -828,10 +742,11 @@ tx_bar_plot <- ggplot(data = tx_bar, aes(x = part, y = pct*100)) +
           axis.text = element_text(size = 11),
           axis.title = element_text(size = 11),
           panel.background = element_rect(fill = "gray97"),
-          panel.spacing.x = unit(2, "lines"),
+          panel.spacing.y = unit(2, "lines"),
           legend.position = c(.03,-.13),
           legend.background = element_rect(fill = "transparent"),
           legend.title = element_blank(),
           plot.caption = element_text(size = 10))
 tx_bar_plot
-ggsave(file.path("plots-transcription", "trained_vs_untrained_vowels.png"), width = 6.25, height = 6.25)
+ggsave(file.path("plots-transcription", "trained_vs_untrained_vowels.png"),
+       width = 6.25, height = 6.25)
