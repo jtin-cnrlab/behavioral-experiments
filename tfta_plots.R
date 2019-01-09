@@ -1,6 +1,6 @@
 # tfta_plots.R
 # Jessica Tin
-# 8 Jan 2019
+# 9 Jan 2019
 #
 # Creates plots for TFTA.
 #
@@ -14,7 +14,7 @@ setwd(file.path(PerrachioneLab, "projects", "TFTA", "Analysis"))
 #### LOAD FUNCTIONS AND PACKAGES ####
 source(file.path(PerrachioneLab, "software", "r-scripts", "load_packages.R"))
 load_packages("dplyr", "magrittr", "readr", "tidyr", "purrr", "ggplot2", "viridis",
-              "scales")
+              "scales", "lme4")
 
 source(file.path(PerrachioneLab, "software", "r-scripts", "within_3SD.R"))
 
@@ -142,7 +142,8 @@ test$trained_v <- factor(test$trained_v, levels = c("untrained", "trained"),
                          labels = c("Untrained Vowels", "Trained Vowels"))
 
 #### READ IN AND PREPROCESS TRANSCRIPTION DATA ####
-master_transcription <- read_csv("master_transcription.csv", col_types = "ciciiccciiiicc")
+master_transcription <- read_csv("master_transcription.csv",
+                                 col_types = "ciciiccciiiicc")
 
 transcription <- master_transcription %>%
     # add training info (with training_groups participant factors as characters)
@@ -154,9 +155,11 @@ transcription <- master_transcription %>%
     mutate_at(vars(-whole_word, -initial, -vowel, -final), as.factor)
 
 # refactor variables
-transcription$trained_t <- factor(transcription$trained_t, levels = c("untrained", "trained"),
+transcription$trained_t <- factor(transcription$trained_t,
+                                  levels = c("untrained", "trained"),
                                   labels = c("Untrained Talkers", "Trained Talkers"))
-transcription$trained_v <- factor(transcription$trained_v, levels = c("untrained", "trained"),
+transcription$trained_v <- factor(transcription$trained_v,
+                                  levels = c("untrained", "trained"),
                                   labels = c("Untrained Vowels", "Trained Vowels"))
 
 #### FUNCTION: TRAINING d' ####
@@ -283,20 +286,20 @@ for (b in c("day", "section", "hsection", "qsection")) {
     p <- plot_training_dprime(b)
     assign(paste0("dprime_",b,"_plot"), p)
     assign(paste0("dprime_",b), p$data)
-    ggsave(file.path("plots-training",paste0("dprime_by",b,".png")),
-           width = 12, height = 6)
+    ggsave(file.path("plots-training","setA_vs_setB",paste0("dprime_",b,".png")),
+           width = ifelse(b == "day", 5.5, 12), height = 6)
     cat(paste0("plot: dprime_",b,"_plot\ndata: dprime_",b,"\nfile: ",
-               file.path("plots-training",paste0("dprime_by",b,".png\n"))))
+               file.path("plots-training","setA_vs_setB",paste0("dprime_",b,".png\n"))))
 
     # combined training groups
     print(paste0("Plotting d' by ", b, ", training groups combined"))
     p <- plot_training_dprime(b, combined_groups = TRUE)
     assign(paste0("dprime_",b,"_combn_plot"), p)
     assign(paste0("dprime_",b,"_combined"), p$data)
-    ggsave(file.path("plots-training",paste0("dprime_by",b,"_combined.png")),
-           width = 12, height = 6)
+    ggsave(file.path("plots-training","combined",paste0("dprime_",b,"_combined.png")),
+           width = ifelse(b == "day", 5.5, 12), height = 6)
     cat(paste0("plot: dprime_",b,"_combn_plot\ndata: dprime_",b,"_combined\nfile: ",
-               file.path("plots-training",paste0("dprime_by",b,"_combined.png\n"))))
+               file.path("plots-training","combined",paste0("dprime_",b,"_combined.png\n"))))
 }
 
 #### FUNCTION: TRAINING RT ####
@@ -315,7 +318,6 @@ plot_training_rt <- function(breakdown = "day", combined_groups = FALSE) {
         ungroup()
 
     rt_plot <- ggplot(data = df, aes_string(x = breakdown, y = "mean_rt")) +
-        scale_y_continuous(limits = c(750, 1750), breaks = seq.int(750, 1750, 100)) +
         labs(title = paste("RT by", case_when(breakdown == "day" ~ "Day",
                                               breakdown == "section" ~ "Section",
                                               breakdown == "hsection" ~ "Half-Section",
@@ -341,7 +343,6 @@ plot_training_rt <- function(breakdown = "day", combined_groups = FALSE) {
             # legend
             legend.title = element_text(size = 9, face = "bold"),
             legend.text = element_text(size = 8),
-            legend.position = c(0.06, 0.13),
             legend.background = element_rect(fill = "transparent"),
             legend.box.background = element_rect(fill = "white"))
 
@@ -384,7 +385,11 @@ plot_training_rt <- function(breakdown = "day", combined_groups = FALSE) {
                  caption = paste0("n = ", unique(df$n), "\n"))
     }
 
-    if (breakdown != "day") {
+    if (breakdown == "day") {
+        rt_plot <- rt_plot +
+            scale_y_continuous(limits = c(650, 1550), breaks = seq.int(650, 1550, 100)) +
+            theme(legend.position = c(0.14, 0.13))
+    } else {
         # plot each day side-by-side using facets
         rt_plot <- rt_plot +
             facet_grid(~ day, switch = "x", labeller = as_labeller(c(`1` = "Day 1",
@@ -392,11 +397,13 @@ plot_training_rt <- function(breakdown = "day", combined_groups = FALSE) {
                                                                      `3` = "Day 3"))) +
             scale_x_discrete(labels = function(x) ifelse(endsWith(x, "5"), "",
                                                          paste0("Section ",x))) +
+            scale_y_continuous(limits = c(650, 2150), breaks = seq.int(650, 2150, 100)) +
             theme(axis.title.x = element_blank(),
                   strip.placement = "outside",
                   strip.text = element_text(size = 12),
                   strip.background = element_blank(),
-                  panel.spacing = unit(0, "lines"))
+                  panel.spacing = unit(0, "lines"),
+                  legend.position = c(0.06, 0.13))
     }
 
     print(rt_plot)
@@ -409,20 +416,20 @@ for (b in c("day", "section", "hsection", "qsection")) {
     p <- plot_training_rt(b)
     assign(paste0("rt_",b,"_plot"), p)
     assign(paste0("rt_",b), p$data)
-    ggsave(file.path("plots-training",paste0("rt_by",b,".png")),
-           width = 12, height = 6)
+    ggsave(file.path("plots-training","setA_vs_setB",paste0("rt_",b,".png")),
+           width = ifelse(b == "day", 5.5, 12), height = 6)
     cat(paste0("plot: rt_",b,"_plot\ndata: rt_",b,"\nfile: ",
-               file.path("plots-training",paste0("rt_by",b,".png\n"))))
+               file.path("plots-training","setA_vs_setB",paste0("rt_",b,".png\n"))))
 
     # combined training groups
     print(paste0("Plotting RT by ", b, ", training groups combined"))
     p <- plot_training_rt(b, combined_groups = TRUE)
     assign(paste0("rt_",b,"_combn_plot"), p)
     assign(paste0("rt_",b,"_combined"), p$data)
-    ggsave(file.path("plots-training",paste0("rt_by",b,"_combined.png")),
-           width = 12, height = 6)
+    ggsave(file.path("plots-training","combined",paste0("rt_",b,"_combined.png")),
+           width = ifelse(b == "day", 5.5, 12), height = 6)
     cat(paste0("plot: rt_",b,"_combn_plot\ndata: rt_",b,"_combined\nfile: ",
-               file.path("plots-training",paste0("rt_by",b,"_combined.png\n"))))
+               file.path("plots-training","combined",paste0("rt_",b,"_combined.png\n"))))
 }
 
 #### FUNCTION: RT BOXPLOTS ####
@@ -439,8 +446,9 @@ plot_training_box <- function(exclude = "none", ymin = 300, ymax = 4200) {
         geom_line(aes(group = participant), position = position_nudge(-.25), alpha = 0.1) +
 
         # labels
-        facet_wrap(~ talker_trained, labeller = as_labeller(c(`setA` = "Trained on setA Talkers",
-                                                              `setB` = "Trained on setB Talkers")),
+        facet_wrap(~ talker_trained,
+                   labeller = as_labeller(c(`setA` = "Trained on setA Talkers",
+                                            `setB` = "Trained on setB Talkers")),
                    scales = "free_y") +
         scale_x_discrete( # hacking x-axis labels...
             # empty strings for spacing
@@ -455,9 +463,11 @@ plot_training_box <- function(exclude = "none", ymin = 300, ymax = 4200) {
         labs(title = "Training RT Over Time", y = "Mean RT (ms)",
              subtitle = paste("Participants excluded:", paste(exclude, collapse = ", ")),
              caption = paste0("setA n = ",
-                              length(unique(filter(rt_box, talker_trained == "setA")$participant)),
+                              length(unique(filter(
+                                  rt_box, talker_trained == "setA")$participant)),
                               "\nsetB n = ",
-                              length(unique(filter(rt_box, talker_trained == "setB")$participant))),
+                              length(unique(filter(
+                                  rt_box, talker_trained == "setB")$participant))),
              fill = "Section") +
 
         # formatting
@@ -502,11 +512,11 @@ ggsave(file.path("plots-training","rt_boxplots.png"), width = 8.75, height = 6.7
 rt_boxplot_excl1 <- plot_training_box("p1230", 300, 2700)
 ggsave(file.path("plots-training","rt_boxplots_excl1.png"), width = 8.75, height = 6.75)
 
-rt_boxplot_excl2 <- plot_training_box(c("p1230", "p4308", "p8823"), 300, 2100)
+rt_boxplot_excl2 <- plot_training_box(c("p1230", "p4308", "p6234"), 300, 2700)
 ggsave(file.path("plots-training","rt_boxplots_excl2.png"), width = 8.75, height = 6.75)
 
 #### FUNCTION: TEST RT ####
-plot_test_rt <- function(all_vowels = FALSE, combined_groups = FALSE) {
+plot_test_rt <- function(all_vowels = FALSE, combined_groups = FALSE, exclude = "none") {
     if (all_vowels) {
         df <- test
         s <- "All Vowels"
@@ -522,7 +532,8 @@ plot_test_rt <- function(all_vowels = FALSE, combined_groups = FALSE) {
         s <- paste0(s, ", Training Groups Combined")
     }
 
-    df %<>% group_by_at(vars(group_by_vars)) %>%
+    df %<>% filter(!participant %in% exclude) %>%
+        group_by_at(vars(group_by_vars)) %>%
         summarize(mean_rt = mean(rt_3SD, na.rm = TRUE)) %>%
         group_by_at(vars(group_by_vars[-1])) %>%
         summarize(n = n(),
@@ -533,7 +544,9 @@ plot_test_rt <- function(all_vowels = FALSE, combined_groups = FALSE) {
         geom_point(aes(shape = test), size = 3.5) +
         facet_wrap(carrier ~ trained_t, scales = "free") +
         scale_y_continuous(limits = c(575, 850), breaks = c(seq.int(600, 850, 50))) +
-        labs(title = "Pre- vs. Post-Test RT", subtitle = s,
+        labs(title = "Pre- vs. Post-Test RT",
+             subtitle = paste0(s, "\nParticipants excluded: ",
+                               paste(exclude, collapse = ", ")),
              x = "", y = "Mean RT (ms)") +
         scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
         scale_alpha_discrete(range = c(0.4, 1)) + # discrete alpha throws unnecessary warning
@@ -564,13 +577,12 @@ plot_test_rt <- function(all_vowels = FALSE, combined_groups = FALSE) {
 
     if (!combined_groups) {
         # plot training groups separately
-        test_setA <- filter(df, talker_trained == "setA")
-        test_setB <- filter(df, talker_trained == "setB")
-
         test_plot <- test_plot +
             aes(color = talker_trained, group = interaction(test, talker_trained)) +
-            labs(caption = paste0("setA n = ", unique(test_setA$n),
-                                  "\nsetB n = ", unique(test_setB$n)))
+            labs(caption = paste0("setA n = ",
+                                  unique(filter(df, talker_trained == "setA")$n),
+                                  "\nsetB n = ",
+                                  unique(filter(df, talker_trained == "setB")$n)))
     } else {
         # plot training groups together
         test_plot <- test_plot +
@@ -589,6 +601,15 @@ ggsave(file.path("plots-test", "rt_trainedv.png"), width = 6, height = 6.5)
 test_rt_combn_plot <- plot_test_rt(combined_groups = TRUE)
 test_rt_combined <- test_rt_combn_plot$data
 ggsave(file.path("plots-test", "rt_trainedv_combined.png"), width = 5.75, height = 6.5)
+
+test_rt_combn_plot_excl1 <- plot_test_rt(combined_groups = TRUE, exclude = "p1230")
+ggsave(file.path("plots-test", "rt_trainedv_combined_excl1.png"),
+       width = 5.75, height = 6.5)
+
+test_rt_combn_plot_excl2 <- plot_test_rt(combined_groups = TRUE,
+                                         exclude = c("p1230", "p4308", "p6234"))
+ggsave(file.path("plots-test", "rt_trainedv_combined_excl2.png"),
+       width = 5.75, height = 6.5)
 
 test_rt_allv_plot <- plot_test_rt(all_vowels = TRUE)
 test_rt_allv <- test_rt_allv_plot$data
@@ -648,10 +669,11 @@ plot_tx <- function(all_vowels = FALSE, combined_groups = FALSE) {
                            labels = function(x) paste0(x,"%"), expand = c(0,0),
                            sec.axis = sec_axis(~.*.96, name = "Words Correct\n",
                                                breaks = seq.int(0, 96, 12))) +
-        labs(title = "Transcription Accuracy", subtitle = s, x = "", y = "Percent Correct") +
+        labs(title = "Transcription Accuracy", subtitle = s,
+             x = "", y = "Percent Correct") +
         #scale_color_viridis(discrete = TRUE, guide = FALSE) +
-        scale_fill_viridis(discrete = TRUE, option = "inferno", begin = .2, end = .7,
-                           direction = -1) +
+        scale_fill_viridis(discrete = TRUE, option = "inferno",
+                           begin = .2, end = .7, direction = -1) +
         theme(plot.title = element_text(hjust = 0.5, face = "bold"),
               plot.subtitle = element_text(hjust = 0.5, face = "italic"),
               plot.caption = element_text(size = 10),
@@ -665,15 +687,16 @@ plot_tx <- function(all_vowels = FALSE, combined_groups = FALSE) {
 
     if (!combined_groups) {
         # plot training groups separately
-        df_setA <- filter(df, talker_trained == "setA")
-        df_setB <- filter(df, talker_trained == "setB")
-
         tx_plot <- tx_plot +
             facet_grid(~ talker_trained,
                        labeller = as_labeller(c(`setA` = "Trained on setA Talkers",
                                                 `setB` = "Trained on setB Talkers"))) +
-            labs(caption = paste0("setA n = ", length(unique(df_setA$participant)),
-                                  "\nsetB n = ", length(unique(df_setB$participant)))) +
+            labs(caption = paste0("setA n = ",
+                                  length(unique(
+                                      filter(df, talker_trained == "setA")$participant)),
+                                  "\nsetB n = ",
+                                  length(unique(
+                                      filter(df, talker_trained == "setB")$participant)))) +
             theme(strip.placement = "outside",
                   strip.background = element_blank(),
                   strip.text = element_text(size = 11),
@@ -714,7 +737,8 @@ tx_bar <- transcription %>%
     group_by(talker_trained, trained_t, trained_v, part) %>%
     summarize(score_total = sum(score), denom = n()) %>%
     mutate(pct = score_total/denom)
-tx_bar$part <- factor(tx_bar$part, levels = c("whole_word", "initial", "vowel", "final"),
+tx_bar$part <- factor(tx_bar$part,
+                      levels = c("whole_word", "initial", "vowel", "final"),
                       labels = c("whole\nword", "initial", "vowel", "final"))
 
 tx_bar_plot <- ggplot(data = tx_bar, aes(x = part, y = pct*100)) +
@@ -729,9 +753,11 @@ tx_bar_plot <- ggplot(data = tx_bar, aes(x = part, y = pct*100)) +
     labs(title = "Transcription Accuracy",
          x = "", y = "Mean Percent Correct (out of 96 words)",
          caption = paste0("setA n = ",
-                          length(unique(filter(tx_allv, talker_trained == "setA")$participant)),
+                          length(unique(filter(tx_bar,
+                                               talker_trained == "setA")$participant)),
                           "\nsetB n = ",
-                          length(unique(filter(tx_allv, talker_trained == "setB")$participant)))) +
+                          length(unique(filter(tx_bar,
+                                               talker_trained == "setB")$participant)))) +
     scale_fill_viridis(discrete = TRUE, option = "inferno", begin = .2, end = .7,
                        direction = -1) +
     theme(strip.placement = "outside",
