@@ -287,26 +287,28 @@ plot_training_dprime <- function(breakdown = "day", combined_groups = FALSE) {
 #### PLOT d' ####
 for (b in c("day", "section", "hsection", "qsection")) {
     # separate training groups
-    print(paste("Plotting d' by", b))
+    print(paste("Plotting training d' by", b))
     p <- plot_training_dprime(b)
     assign(paste0("dprime_",b,"_plot"), p)
-    assign(paste0("dprime_",b), p$data)
+    #assign(paste0("dprime_",b), p$data)
     ggsave(file.path("plots-training","setA_vs_setB",paste0("dprime_",b,".png")),
            width = ifelse(b == "day", 5.5, 12), height = 6)
-    cat(paste0("plot: dprime_",b,"_plot\ndata: dprime_",b,"\nfile: ",
-               file.path("plots-training","setA_vs_setB",
-                         paste0("dprime_",b,".png\n"))))
+    cat(paste0("plot: dprime_",b,"_plot\n",
+               #"data: dprime_",b,"\n"
+               "file: ", file.path("plots-training","setA_vs_setB",
+                                   paste0("dprime_",b,".png\n"))))
 
     # combined training groups
-    print(paste0("Plotting d' by ", b, ", training groups combined"))
+    print(paste0("Plotting training d' by ", b, ", training groups combined"))
     p <- plot_training_dprime(b, combined_groups = TRUE)
     assign(paste0("dprime_",b,"_combn_plot"), p)
-    assign(paste0("dprime_",b,"_combined"), p$data)
+    #assign(paste0("dprime_",b,"_combined"), p$data)
     ggsave(file.path("plots-training","combined",paste0("dprime_",b,"_combined.png")),
            width = ifelse(b == "day", 5.5, 12), height = 6)
-    cat(paste0("plot: dprime_",b,"_combn_plot\ndata: dprime_",b,"_combined\nfile: ",
-               file.path("plots-training","combined",
-                         paste0("dprime_",b,"_combined.png\n"))))
+    cat(paste0("plot: dprime_",b,"_combn_plot\n",
+               #"data: dprime_",b,"_combined\n"
+               "file: ", file.path("plots-training","combined",
+                                   paste0("dprime_",b,"_combined.png\n"))))
 }
 
 #### FUNCTION: TRAINING RT ####
@@ -422,26 +424,28 @@ plot_training_rt <- function(breakdown = "day", combined_groups = FALSE,
 #### PLOT RT ####
 for (b in c("day", "section", "hsection", "qsection")) {
     # separate training groups
-    print(paste("Plotting RT by", b))
+    print(paste("Plotting training RT by", b))
     p <- plot_training_rt(b)
     assign(paste0("rt_",b,"_plot"), p)
-    assign(paste0("rt_",b), p$data)
+    #assign(paste0("rt_",b), p$data)
     ggsave(file.path("plots-training","setA_vs_setB",paste0("rt_",b,".png")),
            width = ifelse(b == "day", 5.5, 12), height = 6)
-    cat(paste0("plot: rt_",b,"_plot\ndata: rt_",b,"\nfile: ",
-               file.path("plots-training","setA_vs_setB",
-                         paste0("rt_",b,".png\n"))))
+    cat(paste0("plot: rt_",b,"_plot\n",
+               #"data: rt_",b,"\n"
+               "file: ", file.path("plots-training","setA_vs_setB",
+                                   paste0("rt_",b,".png\n"))))
 
     # combined training groups
-    print(paste0("Plotting RT by ", b, ", training groups combined"))
+    print(paste0("Plotting training RT by ", b, ", training groups combined"))
     p <- plot_training_rt(b, combined_groups = TRUE)
     assign(paste0("rt_",b,"_combn_plot"), p)
-    assign(paste0("rt_",b,"_combined"), p$data)
+    #assign(paste0("rt_",b,"_combined"), p$data)
     ggsave(file.path("plots-training","combined",paste0("rt_",b,"_combined.png")),
            width = ifelse(b == "day", 5.5, 12), height = 6)
-    cat(paste0("plot: rt_",b,"_combn_plot\ndata: rt_",b,"_combined\nfile: ",
-               file.path("plots-training","combined",
-                         paste0("rt_",b,"_combined.png\n"))))
+    cat(paste0("plot: rt_",b,"_combn_plot\n",
+               #"data: rt_",b,"_combined\n"
+               "file: ", file.path("plots-training","combined",
+                                   paste0("rt_",b,"_combined.png\n"))))
 }
 
 #### FUNCTION: RT BOXPLOTS ####
@@ -542,13 +546,19 @@ plot_training_box <- function(exclude = "none", combined_groups = FALSE,
 }
 
 #### PLOT RT BOXPLOTS ####
-rt_boxplot_combn <- plot_training_box(combined_groups = TRUE)
-ggsave(file.path("plots-training","combined","rt_boxplots_combined.png"),
-       width = 4.75, height = 5.5)
-
+print("Plotting training RT boxplots")
 rt_boxplot <- plot_training_box()
 ggsave(file.path("plots-training","setA_vs_setB", "rt_boxplots.png"),
        width = 8.75, height = 6)
+cat(paste0("plot: rt_boxplot\nfile: ",
+           file.path("plots-training","setA_vs_setB", "rt_boxplots.png\n")))
+
+print("Plotting training RT boxplots, training groups combined")
+rt_boxplot_combn <- plot_training_box(combined_groups = TRUE)
+ggsave(file.path("plots-training","combined","rt_boxplots_combined.png"),
+       width = 4.75, height = 5.5)
+cat(paste0("plot: rt_boxplot_combn\nfile: ",
+           file.path("plots-training","combined","rt_boxplots_combined.png\n")))
 
 #### FUNCTION: TEST RT, SINGLE VS. MIXED ####
 plot_test_rt_singlemixed <- function(all_vowels = FALSE, combined_groups = FALSE,
@@ -632,26 +642,45 @@ plot_test_rt_singlemixed <- function(all_vowels = FALSE, combined_groups = FALSE
 }
 
 #### PLOT SINGLE VS. MIXED RT ####
+print("Plotting test RT, single vs. mixed blocks")
 test_rt_sm_plot <- plot_test_rt_singlemixed()
-test_rt_sm <- select(test_rt_sm_plot$data, -.group)
+#test_rt_sm <- select(test_rt_sm_plot$data, -.group)
 ggsave(file.path("plots-test", "single_vs_mixed", "rt_trainedv.png"),
        width = 6, height = 6.5)
+cat(paste0("plot: test_rt_sm_plot\n",
+           #"data: test_rt_sm\n"
+           "file: ", file.path("plots-test", "single_vs_mixed",
+                               "rt_trainedv.png\n")))
 
+print("Plotting test RT, single vs. mixed blocks, training groups combined")
 test_rt_sm_combn_plot <- plot_test_rt_singlemixed(combined_groups = TRUE)
-test_rt_sm_combined <- select(test_rt_sm_combn_plot$data, -.group)
+#test_rt_sm_combined <- select(test_rt_sm_combn_plot$data, -.group)
 ggsave(file.path("plots-test", "single_vs_mixed", "rt_trainedv_combined.png"),
        width = 5.75, height = 6.5)
+cat(paste0("plot: test_rt_sm_combn_plot\n",
+           #"data: test_rt_sm_combined\n"
+           "file: ", file.path("plots-test", "single_vs_mixed",
+                               "rt_trainedv_combined.png\n")))
 
+print("Plotting test RT, single vs. mixed blocks, all vowels")
 test_rt_sm_allv_plot <- plot_test_rt_singlemixed(all_vowels = TRUE)
-test_rt_sm_allv <- select(test_rt_sm_allv_plot$data, -.group)
+#test_rt_sm_allv <- select(test_rt_sm_allv_plot$data, -.group)
 ggsave(file.path("plots-test", "single_vs_mixed", "rt_allv.png"),
        width = 6, height = 6.5)
+cat(paste0("plot: test_rt_sm_allv_plot\n",
+           #"data: test_rt_sm_allv\n"
+           "file: ", file.path("plots-test", "single_vs_mixed", "rt_allv.png\n")))
 
+print("Plotting test RT, single vs. mixed blocks, all vowels, training groups combined")
 test_rt_sm_allv_combn_plot <- plot_test_rt_singlemixed(all_vowels = TRUE,
                                                        combined_groups = TRUE)
-test_rt_sm_allv_combined <- select(test_rt_sm_allv_combn_plot$data, -.group)
+#test_rt_sm_allv_combined <- select(test_rt_sm_allv_combn_plot$data, -.group)
 ggsave(file.path("plots-test", "single_vs_mixed", "rt_allv_combined.png"),
        width = 5.75, height = 6.5)
+cat(paste0("plot: test_rt_sm_allv_combn_plot\n",
+           #"data: test_rt_sm_allv_combined\n"
+           "file: ", file.path("plots-test", "single_vs_mixed",
+                               "rt_allv_combined.png\n")))
 
 #### FUNCTION: TEST RT, PRE VS. POST ####
 plot_test_rt_prepost <- function(all_vowels = FALSE, combined_groups = FALSE,
@@ -735,26 +764,44 @@ plot_test_rt_prepost <- function(all_vowels = FALSE, combined_groups = FALSE,
 }
 
 #### PLOT PRE- VS. POST-TEST RT ####
+print("Plotting test RT, pre- vs. post-test")
 test_rt_pp_plot <- plot_test_rt_prepost()
-test_rt_pp <- select(test_rt_pp_plot$data, -.group)
+#test_rt_pp <- select(test_rt_pp_plot$data, -.group)
 ggsave(file.path("plots-test", "pre_vs_post", "rt_trainedv.png"),
        width = 6, height = 6.5)
+cat(paste0("plot: test_rt_pp_plot\n",
+           #"data: test_rt_pp\n"
+           "file: ", file.path("plots-test", "pre_vs_post", "rt_trainedv.png\n")))
 
+print("Plotting test RT, pre- vs. post-test, training groups combined")
 test_rt_pp_combn_plot <- plot_test_rt_prepost(combined_groups = TRUE)
-test_rt_pp_combined <- select(test_rt_pp_combn_plot$data, -.group)
+#test_rt_pp_combined <- select(test_rt_pp_combn_plot$data, -.group)
 ggsave(file.path("plots-test", "pre_vs_post", "rt_trainedv_combined.png"),
        width = 5.75, height = 6.5)
+cat(paste0("plot: test_rt_pp_combn_plot\n",
+           #"data: test_rt_pp_combined\n"
+           "file: ", file.path("plots-test", "pre_vs_post",
+                               "rt_trainedv_combined.png\n")))
 
+print("Plotting test RT, pre- vs. post-test, all vowels")
 test_rt_pp_allv_plot <- plot_test_rt_prepost(all_vowels = TRUE)
-test_rt_pp_allv <- select(test_rt_pp_allv_plot$data, -.group)
+#test_rt_pp_allv <- select(test_rt_pp_allv_plot$data, -.group)
 ggsave(file.path("plots-test", "pre_vs_post", "rt_allv.png"),
        width = 6, height = 6.5)
+cat(paste0("plot: test_rt_pp_allv_plot\n",
+           #"data: test_rt_pp_allv\n"
+           "file: ", file.path("plots-test", "pre_vs_post", "rt_allv.png\n")))
 
+print("Plotting test RT, pre- vs. post-test, all vowels, training groups combined")
 test_rt_pp_allv_combn_plot <- plot_test_rt_prepost(all_vowels = TRUE,
                                                    combined_groups = TRUE)
-test_rt_pp_allv_combined <- select(test_rt_pp_allv_combn_plot$data, -.group)
+#test_rt_pp_allv_combined <- select(test_rt_pp_allv_combn_plot$data, -.group)
 ggsave(file.path("plots-test", "pre_vs_post", "rt_allv_combined.png"),
        width = 5.75, height = 6.5)
+cat(paste0("plot: test_rt_pp_allv_combn_plot\n",
+           #"data: test_rt_pp_allv_combined\n"
+           "file: ", file.path("plots-test", "pre_vs_post",
+                               "rt_allv_combined.png\n")))
 
 #### FUNCTION: TRANSCRIPTION ACCURACY ####
 plot_tx <- function(all_vowels = FALSE, combined_groups = FALSE) {
@@ -854,22 +901,40 @@ plot_tx <- function(all_vowels = FALSE, combined_groups = FALSE) {
 }
 
 #### PLOT TRANSCRIPTION ACCURACY ####
+print("Plotting transcription accuracy")
 tx_acc_plot <- plot_tx()
-tx_acc <- select(tx_acc_plot$data, -.group)
+#tx_acc <- select(tx_acc_plot$data, -.group)
 ggsave(file.path("plots-transcription", "accuracy_trainedv.png"),
        width = 6.5, height = 5.5)
+cat(paste0("plot: tx_acc_plot\n",
+           #"data: tx_acc\n"
+           "file: ", file.path("plots-transcription", "accuracy_trainedv.png\n")))
 
+print("Plotting transcription accuracy, training groups combined")
 tx_acc_combn_plot <- plot_tx(combined_groups = TRUE)
-tx_acc_combined <- select(tx_acc_combn_plot$data, -.group)
+#tx_acc_combined <- select(tx_acc_combn_plot$data, -.group)
 ggsave(file.path("plots-transcription", "accuracy_trainedv_combined.png"),
        width = 4, height = 5.25)
+cat(paste0("plot: tx_acc_combn_plot\n",
+           #"data: tx_acc_combined\n"
+           "file: ", file.path("plots-transcription",
+                               "accuracy_trainedv_combined.png\n")))
 
+print("Plotting transcription accuracy, all vowels")
 tx_acc_allv_plot <- plot_tx(all_vowels = TRUE)
-tx_acc_allv <- select(tx_acc_allv_plot$data, -.group)
+#tx_acc_allv <- select(tx_acc_allv_plot$data, -.group)
 ggsave(file.path("plots-transcription", "accuracy_allv.png"),
        width = 6.5, height = 5.5)
+cat(paste0("plot: tx_acc_allv_plot\n",
+           #"data: tx_acc_allv\n"
+           "file: ", file.path("plots-transcription", "accuracy_allv.png\n")))
 
+print("Plotting transcription accuracy, all vowels, training groups combined")
 tx_acc_allv_combn_plot <- plot_tx(all_vowels = TRUE, combined_groups = TRUE)
-tx_acc_allv_combined <- tx_acc_allv_combn_plot$data
+#tx_acc_allv_combined <- tx_acc_allv_combn_plot$data
 ggsave(file.path("plots-transcription", "accuracy_allv_combined.png"),
        width = 4, height = 5.25)
+cat(paste0("plot: tx_acc_allv_combn_plot\n",
+           #"data: tx_acc_allv_combined\n"
+           "file: ", file.path("plots-transcription",
+                               "accuracy_allv_combined.png\n")))
