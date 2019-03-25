@@ -10,18 +10,21 @@
 # within_3SD(vals, lognorm)
 #     args: vals  A numeric vector, the values to check
 #           lognorm (optional)  A boolean, whether or not to log-normalize first
+#           warn (optional)  A boolean, whether or not to print warnings about NA
+#                            and non-positive values
 #  returns: A numeric vector, identical to the input, but with NAs replacing any
 #           value more than three standard deviations away from the vector mean
 #      ex.: within_3SD(df$rt)
 
-within_3SD <- function(vals, lognorm = TRUE) {
+within_3SD <- function(vals, lognorm = TRUE, warn = FALSE) {
+
     # warn about NA values
-    if (any(is.na(vals))) cat("Warning:", sum(is.na(vals)), "NA values\n")
+    if (any(is.na(vals)) && warn) cat("Warning:", sum(is.na(vals)), "NA values\n")
 
     # remove any non-positive values
     if (any(vals[!is.na(vals)] <= 0)) {
-        cat("Warning: removing", sum(vals[!is.na(vals)] < 0), "negative value(s)
-            and", sum(vals[!is.na(vals)] == 0), "zero value(s).\n")
+        if (warn) cat("Warning: removing", sum(vals[!is.na(vals)] < 0), "negative
+                       value(s) and", sum(vals[!is.na(vals)] == 0), "zero value(s).\n")
         vals <- vals[vals > 0]
     }
 
