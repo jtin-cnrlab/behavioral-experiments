@@ -1,27 +1,32 @@
 # within_3SD.R
 # Jessica Tin
-# 3 Jan 2019
+# 25 Mar 2019
 #
 # Defines within_3SD() for identifying which values in a vector are within three
 # standard deviations of the vector mean. Values outside of the 3 SDs are replaced
 # with NA. By default, the vector is first normalized by taking the log of all values.
+# If any values in the vector are NA to begin with, they are returned as NA.
 #
-# within_3SD()
-#     args: A numeric vector, and (optionally) whether or not to log-normalize first
-#  returns: A numeric vector, the same as the input, except with NAs for each
+# within_3SD(vals, lognorm)
+#     args: vals  A numeric vector, the values to check
+#           lognorm (optional)  A boolean, whether or not to log-normalize first
+#  returns: A numeric vector, identical to the input, but with NAs replacing any
 #           value more than three standard deviations away from the vector mean
 #      ex.: within_3SD(df$rt)
 
 within_3SD <- function(vals, lognorm = TRUE) {
+    # warn about NA values
+    if (any(is.na(vals))) cat("Warning:", sum(is.na(vals)), "NA values\n")
+
     # remove any non-positive values
-    if (any(vals <= 0)) {
-        cat("Warning: removing", sum(vals < 0), "negative value(s) and", sum(vals == 0),
-            "zero value(s).\n")
+    if (any(vals[!is.na(vals)] <= 0)) {
+        cat("Warning: removing", sum(vals[!is.na(vals)] < 0), "negative value(s)
+            and", sum(vals[!is.na(vals)] == 0), "zero value(s).\n")
         vals <- vals[vals > 0]
     }
 
     # unless specified to use original values, log-normalize the values first
     norm_vals <- if (lognorm) log(vals) else vals
 
-    return(ifelse(abs(norm_vals - mean(norm_vals)) <= 3*sd(norm_vals), vals, NA))
+    return(ifelse(abs(norm_vals - mean(norm_vals, na.rm = TRUE)) <= 3*sd(norm_vals, na.rm = TRUE), vals, NA))
 }
